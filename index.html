@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GOLD 一目チャート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Shippori+Mincho+B1:wght@700&display=swap">
+<style>
+/* Layout: 相場端末。上に銘柄と操作列、左に可変幅のチャート、右に分析レール（狭い画面では縦積み） */
+:root{
+  --bg:#eceeeb; --panel:#f8f9f6; --ink:#1c201e; --mute:#5c6560; --line:#d3d8d3; --grid:#e2e6e1;
+  --gold:#9c6c12; --gold-soft:#f1e5c6;
+  --up:#13784f; --up-bg:#d8efe3; --down:#b8342b; --down-bg:#f6dcd8; --neu:#6c746f; --neu-bg:#e4e7e3;
+  --ma5:#d29d00; --ma20:#df6417; --ma75:#0f84a6; --ma210:#7a3db3;
+  --tenkan:#d1336b; --kijun:#2a57c2; --chikou:#3a8c3e;
+  --kumo-up:rgba(19,120,79,.14); --kumo-dn:rgba(184,52,43,.13);
+  --kumo-up-line:rgba(19,120,79,.55); --kumo-dn-line:rgba(184,52,43,.5);
+  --time:#b07f00; --taito:#cc2b56; --zig:#6a716d; --cross:#3b423e;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1110; --panel:#151918; --ink:#e3e7e2; --mute:#97a19b; --line:#29302d; --grid:#1d2220;
+    --gold:#d9a441; --gold-soft:#2f2717;
+    --up:#34c286; --up-bg:#123527; --down:#f0645a; --down-bg:#3a1a17; --neu:#9aa39e; --neu-bg:#232927;
+    --ma5:#f2c331; --ma20:#ff8b3e; --ma75:#38b7d8; --ma210:#b47ee8;
+    --tenkan:#ff5f95; --kijun:#6590ff; --chikou:#71c475;
+    --kumo-up:rgba(52,194,134,.13); --kumo-dn:rgba(240,100,90,.12);
+    --kumo-up-line:rgba(52,194,134,.5); --kumo-dn-line:rgba(240,100,90,.48);
+    --time:#e2b53a; --taito:#ff6185; --zig:#8e9893; --cross:#c9d0cb;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1110; --panel:#151918; --ink:#e3e7e2; --mute:#97a19b; --line:#29302d; --grid:#1d2220;
+  --gold:#d9a441; --gold-soft:#2f2717;
+  --up:#34c286; --up-bg:#123527; --down:#f0645a; --down-bg:#3a1a17; --neu:#9aa39e; --neu-bg:#232927;
+  --ma5:#f2c331; --ma20:#ff8b3e; --ma75:#38b7d8; --ma210:#b47ee8;
+  --tenkan:#ff5f95; --kijun:#6590ff; --chikou:#71c475;
+  --kumo-up:rgba(52,194,134,.13); --kumo-dn:rgba(240,100,90,.12);
+  --kumo-up-line:rgba(52,194,134,.5); --kumo-dn-line:rgba(240,100,90,.48);
+  --time:#e2b53a; --taito:#ff6185; --zig:#8e9893; --cross:#c9d0cb;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.app{max-width:1640px;margin:0 auto;display:grid;gap:14px;padding-block:16px 28px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 28px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-size:1.6rem;letter-spacing:.06em;margin:0;text-wrap:balance}
+.sym{font-family:var(--f-num);font-size:.8rem;color:var(--mute);letter-spacing:.06em}
+.quote{display:flex;align-items:baseline;gap:12px;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.quote .px{font-size:1.7rem;font-weight:600}
+.quote .chg{font-size:.9rem;font-weight:600}
+.quote .chg.up{color:var(--up)} .quote .chg.dn{color:var(--down)}
+.quote .lbl{font-family:var(--f-body);font-size:.72rem;color:var(--mute);letter-spacing:.06em}
+
+.feed{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:.82rem}
+.feed .dot{width:9px;height:9px;border-radius:50%;background:var(--neu);flex:none}
+.feed[data-state="live"] .dot{background:var(--up);box-shadow:0 0 0 3px var(--up-bg)}
+.feed[data-state="error"] .dot{background:var(--down)}
+.feed[data-state="error"] .feedtxt{color:var(--down)}
+.feedtxt{flex:1 1 260px;min-width:0}
+.feedctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.keybox{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}
+.keybox[hidden]{display:none!important}
+.ctl input[type=password]{width:190px;font-family:var(--f-num)}
+@media (prefers-reduced-motion:no-preference){.feed[data-state="live"] .dot{animation:pulse 2s ease-in-out infinite}}
+@keyframes pulse{50%{box-shadow:0 0 0 6px transparent}}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.seg button{font:inherit;font-size:.84rem;border:0;border-right:1px solid var(--line);background:transparent;color:var(--ink);
+  padding:7px 11px;cursor:pointer;min-width:52px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:700}
+.seg button:disabled{color:var(--mute);opacity:.5;cursor:not-allowed}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.tg{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 8px;
+  font-size:.8rem;cursor:pointer;background:var(--panel);user-select:none}
+.tg input{accent-color:var(--gold);margin:0}
+.tg i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.ctl{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--mute)}
+.ctl input,.ctl select{font:inherit;font-family:var(--f-num);font-size:.82rem;width:58px;padding:4px 6px;border:1px solid var(--line);
+  border-radius:4px;background:var(--panel);color:var(--ink)}
+.ctl select{width:auto}
+.btn{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 11px;cursor:pointer}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#fff;font-weight:700}
+:root[data-theme="dark"] .btn.primary{color:#1a1406}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#1a1406}}
+button:focus-visible,.tg:focus-within,input:focus-visible,select:focus-visible,label.btn:focus-within{outline:2px solid var(--gold);outline-offset:2px}
+.file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:14px;align-items:start}
+@media (max-width:1080px){.main{grid-template-columns:minmax(0,1fr)}}
+.chartbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;min-width:0;display:flex;flex-direction:column}
+.readout{display:flex;flex-wrap:wrap;gap:3px 14px;padding:8px 12px;border-bottom:1px solid var(--line);
+  font-family:var(--f-num);font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--mute);min-height:34px}
+.readout b{color:var(--ink);font-weight:600}
+.readout .k{display:inline-flex;align-items:center;gap:5px}
+.readout .k i{width:10px;height:3px;border-radius:2px;display:inline-block}
+#chart{display:block;width:100%;height:clamp(380px,64vh,760px);touch-action:none;cursor:crosshair}
+.chartfoot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;padding:7px 12px;border-top:1px solid var(--line);font-size:.74rem;color:var(--mute)}
+.chartfoot .zoom{display:inline-flex;gap:4px}
+.chartfoot .zoom button{font:inherit;font-family:var(--f-num);border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:4px;padding:2px 9px;cursor:pointer}
+
+.rail{display:grid;gap:12px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+.card h2{font-size:.72rem;font-weight:700;letter-spacing:.12em;color:var(--mute);margin:0 0 9px}
+.verdict{border-radius:6px;padding:12px 14px;display:grid;gap:3px}
+.verdict .v{font-family:var(--f-display);font-size:1.25rem;letter-spacing:.04em}
+.verdict .d{font-size:.8rem}
+.verdict.up{background:var(--up-bg);color:var(--up)}
+.verdict.dn{background:var(--down-bg);color:var(--down)}
+.verdict.neu{background:var(--neu-bg);color:var(--ink)}
+.verdict .d{color:var(--ink);opacity:.85}
+
+.tw{overflow-x:auto}
+table.mtf{width:100%;border-collapse:collapse;font-size:.72rem;font-variant-numeric:tabular-nums}
+table.mtf th{font-weight:700;color:var(--mute);padding:4px 2px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+table.mtf td{padding:5px 2px;text-align:center;border-bottom:1px solid var(--grid);white-space:nowrap}
+table.mtf tr[data-tf]{cursor:pointer}
+table.mtf tr[data-tf]:hover td{background:var(--grid)}
+table.mtf tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+table.mtf td:first-child{text-align:left;font-weight:700;padding-left:6px}
+table.mtf .kj{font-family:var(--f-num);font-size:.68rem}
+.chip{display:inline-block;padding:2px 5px;border-radius:3px;font-weight:700;font-size:.68rem;line-height:1.3}
+.chip.up{background:var(--up-bg);color:var(--up)} .chip.dn{background:var(--down-bg);color:var(--down)} .chip.neu{background:var(--neu-bg);color:var(--neu)}
+.up-t{color:var(--up)} .dn-t{color:var(--down)} .mu{color:var(--mute)}
+
+.multi{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:460px){.multi{grid-template-columns:1fr}}
+.gbar h3{font-size:.84rem;margin:0 0 4px;font-weight:700}
+.gbar canvas{width:100%;height:78px;display:block;margin:4px 0 6px}
+.gbar .line{font-size:.76rem}
+.gbar .ctl{margin-top:4px}
+
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:0;font-size:.8rem}
+dl.kv dt{color:var(--mute);white-space:nowrap}
+dl.kv dd{margin:0;min-width:0}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.wstat{font-weight:700;font-size:.92rem;margin-bottom:6px}
+table.tg2{width:100%;border-collapse:collapse;font-size:.76rem;font-variant-numeric:tabular-nums;margin-top:8px}
+table.tg2 td,table.tg2 th{padding:4px 4px;border-bottom:1px solid var(--grid);text-align:right}
+table.tg2 th{color:var(--mute);font-weight:700;text-align:right}
+table.tg2 td:first-child,table.tg2 th:first-child{text-align:left}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.hit{color:var(--time);font-weight:700}
+details.help{font-size:.8rem;color:var(--mute)}
+details.help summary{cursor:pointer;color:var(--ink);font-weight:700}
+details.help p{margin:6px 0}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>GOLD 一目チャート</h1>
+      <span class="sym" id="sym">XAU/USD</span>
+    </div>
+    <div class="quote">
+      <span class="lbl" id="qLbl">終値</span>
+      <span class="px" id="qPx">—</span>
+      <span class="chg" id="qChg"></span>
+    </div>
+  </header>
+
+  <div class="feed" id="feed">
+    <span class="dot" id="dot" aria-hidden="true"></span>
+    <span class="feedtxt" id="feedTxt">価格を取得しています…</span>
+    <span class="feedctl">
+      <label class="ctl" for="srcSel">データ元<select id="srcSel">
+        <option value="binance">Binance PAXG（登録不要）</option>
+        <option value="twelve">Twelve Data XAU/USD（無料キー）</option>
+      </select></label>
+      <span class="keybox" id="keyBox" hidden>
+        <label class="ctl" for="apiKey">APIキー<input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="無料キーを貼り付け"></label>
+        <button class="btn" type="button" id="keySave">保存して取得</button>
+      </span>
+      <button class="btn" type="button" id="btnNow">今すぐ更新</button>
+    </span>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg" id="tfSeg" role="group" aria-label="時間足"></div>
+    <div class="toggles" id="layers">
+      <label class="tg"><input type="checkbox" id="lyMa" checked><i style="background:var(--ma20)"></i>移動平均</label>
+      <label class="tg"><input type="checkbox" id="lyIchi" checked><i style="background:var(--kijun)"></i>一目均衡表</label>
+      <label class="tg"><input type="checkbox" id="lyWave" checked><i style="background:var(--zig)"></i>波動</label>
+      <label class="tg"><input type="checkbox" id="lyTgt" checked><i style="background:var(--gold)"></i>値幅観測</label>
+      <label class="tg"><input type="checkbox" id="lyTime" checked><i style="background:var(--time)"></i>時間論</label>
+    </div>
+    <label class="ctl" for="pivN">山・谷の判定本数<input type="number" id="pivN" min="2" max="30" value="5"></label>
+  </div>
+
+  <div class="main">
+    <section class="chartbox" aria-label="チャート">
+      <div class="readout" id="readout"></div>
+      <canvas id="chart"></canvas>
+      <div class="chartfoot">
+        <span>ドラッグで移動・ホイール／ピンチで拡大縮小。点線の縦線は時間論の基本数値、赤の破線は対等数値。</span>
+        <span class="zoom">
+          <button type="button" id="zIn" aria-label="拡大">＋</button>
+          <button type="button" id="zOut" aria-label="縮小">−</button>
+          <button type="button" id="zEnd">最新へ</button>
+        </span>
+      </div>
+    </section>
+
+    <aside class="rail">
+      <div class="verdict neu" id="verdict"><span class="v">—</span><span class="d"></span></div>
+
+      <section class="card">
+        <h2>時間足ごとの判定</h2>
+        <div class="tw"><table class="mtf" id="mtf"></table></div>
+      </section>
+
+      <section class="card multi">
+        <div class="gbar">
+          <h3>三日足</h3>
+          <canvas id="cv3"></canvas>
+          <div class="line" id="t3"></div>
+          <label class="ctl" for="off3">起点<select id="off3"><option value="0">0日ずらし</option><option value="1">1日ずらし</option><option value="2">2日ずらし</option></select></label>
+        </div>
+        <div class="gbar">
+          <h3>九週足</h3>
+          <canvas id="cv9"></canvas>
+          <div class="line" id="t9"></div>
+          <label class="ctl" for="off9">起点<select id="off9"></select></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="wTitle">波動と値幅観測</h2>
+        <div id="wave"></div>
+      </section>
+
+      <section class="card">
+        <h2 id="tTitle">時間論</h2>
+        <div id="time"></div>
+      </section>
+
+      <section class="card">
+        <h2 id="lTitle">相場水準（期間ごとの半値）</h2>
+        <div id="levels"></div>
+      </section>
+
+      <section class="card">
+        <details class="help">
+          <summary>データ元と見方</summary>
+          <p><b>Binance PAXG</b>は登録不要で、15秒ごとに自動更新します。PAXGは金1トロイオンスと交換できるトークンで、値動きは金のスポット価格とほぼ同じですが、数ドルのずれと土日の値動きがあります。</p>
+          <p><b>Twelve Data XAU/USD</b>は金のスポット価格そのものです。twelvedata.com で無料登録してAPIキーを貼り付けると使えます。無料枠は1日800回・1分8回までなので、表示中の時間足を2分ごとに更新し、他の時間足は切り替えたときに10分以上古ければ取り直します。</p>
+          <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
+          <p>雲は26本先にずらして描き、遅行スパンは26本前に描いています。三役は「転換線が基準線より上」「価格が雲の上」「遅行スパンが26本前のローソク足より上」の3つがそろった状態です。</p>
+        </details>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ===================== 定数 ===================== */
+const TFS = [
+  {k:'1',  m:1,    label:'1分'},
+  {k:'5',  m:5,    label:'5分'},
+  {k:'15', m:15,   label:'15分'},
+  {k:'60', m:60,   label:'1時間'},
+  {k:'240',m:240,  label:'4時間'},
+  {k:'D',  m:1440, label:'日足'}
+];
+const TF = {}; TFS.forEach(x => TF[x.k] = x);
+const KIHON  = [9,17,26,33,42,65,76,129,172];
+const LEVELS = [9,17,26,33,42,52,65,76];
+const MA_P   = [5,20,75,210];
+const OFF = 25;              // 26本目にずらす
+const PREFS = 'gold-ichimoku-chart-prefs-v1';
+
+/* ===================== 状態 ===================== */
+const S = {
+  tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
+  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true},
+  piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
+  off3:0, off9:0, hover:null
+};
+
+/* ===================== ユーティリティ ===================== */
+const $ = s => document.querySelector(s);
+const fmt = v => Number.isFinite(v) ? v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+const pad = n => String(n).padStart(2,'0');
+const sgn = v => v > 0 ? 1 : v < 0 ? -1 : 0;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function fmtT(t, m, short){
+  const d = new Date(t);
+  const Y=d.getFullYear(), Mo=pad(d.getMonth()+1), Da=pad(d.getDate()), H=pad(d.getHours()), Mi=pad(d.getMinutes());
+  if (m >= 1440) return short ? `${Y%100}/${Mo}/${Da}` : `${Y}/${Mo}/${Da}`;
+  return short ? `${Mo}/${Da} ${H}:${Mi}` : `${Y}/${Mo}/${Da} ${H}:${Mi}`;
+}
+const cls = v => v > 0 ? 'up' : v < 0 ? 'dn' : 'neu';
+function tokens(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  return {
+    bg:g('--panel'), ink:g('--ink'), mute:g('--mute'), line:g('--line'), grid:g('--grid'), gold:g('--gold'),
+    up:g('--up'), down:g('--down'), ma:{5:g('--ma5'),20:g('--ma20'),75:g('--ma75'),210:g('--ma210')},
+    tenkan:g('--tenkan'), kijun:g('--kijun'), chikou:g('--chikou'),
+    kumoUp:g('--kumo-up'), kumoDn:g('--kumo-dn'), kumoUpL:g('--kumo-up-line'), kumoDnL:g('--kumo-dn-line'),
+    time:g('--time'), taito:g('--taito'), zig:g('--zig'), cross:g('--cross'),
+    num:g('--f-num') || 'monospace', body:g('--f-body') || 'sans-serif'
+  };
+}
+
+/* ===================== 足の合成 ===================== */
+function resample(s, mins){
+  const out = {t:[],o:[],h:[],l:[],c:[]}; const span = mins*60000; let cur = null;
+  for (let i=0;i<s.t.length;i++){
+    const b = mins >= 1440 ? Math.floor(s.t[i]/86400000)*86400000 : Math.floor(s.t[i]/span)*span;
+    if (b !== cur){ out.t.push(b); out.o.push(s.o[i]); out.h.push(s.h[i]); out.l.push(s.l[i]); out.c.push(s.c[i]); cur = b; }
+    else { const j = out.t.length-1; if (s.h[i]>out.h[j]) out.h[j]=s.h[i]; if (s.l[i]<out.l[j]) out.l[j]=s.l[i]; out.c[j]=s.c[i]; }
+  }
+  return out;
+}
+function groupBars(D, keyFn){
+  const out = []; let cur = null;
+  for (let i=0;i<D.t.length;i++){
+    const k = keyFn(i, D.t[i]);
+    if (k !== cur){ out.push({t:D.t[i],o:D.o[i],h:D.h[i],l:D.l[i],c:D.c[i],n:1}); cur = k; }
+    else { const b = out[out.length-1]; if (D.h[i]>b.h) b.h=D.h[i]; if (D.l[i]<b.l) b.l=D.l[i]; b.c=D.c[i]; b.n++; }
+  }
+  return out;
+}
+
+/* ===================== 指標計算 ===================== */
+function calc(src, k){
+  const n = src.t.length, h = src.h, l = src.l, c = src.c;
+  const sma = p => { const r = new Array(n).fill(NaN); let s=0; for (let i=0;i<n;i++){ s+=c[i]; if (i>=p) s-=c[i-p]; if (i>=p-1) r[i]=s/p; } return r; };
+  const mid = p => { const r = new Array(n).fill(NaN);
+    for (let i=p-1;i<n;i++){ let hi=-Infinity, lo=Infinity; for (let j=i-p+1;j<=i;j++){ if (h[j]>hi) hi=h[j]; if (l[j]<lo) lo=l[j]; } r[i]=(hi+lo)/2; }
+    return r; };
+  const R = {S:src, ma:{}, piv:[]};
+  MA_P.forEach(p => R.ma[p] = sma(p));
+  R.ten = mid(9); R.kij = mid(26); R.spB = mid(52);
+  R.spA = R.ten.map((v,i) => (v + R.kij[i]) / 2);
+  R.sy = new Int8Array(n);
+  for (let i=0;i<n;i++) R.sy[i] = stateAt(R,i).sy;
+  R.piv = pivots(h, l, k);
+  R.wave = waveInfo(R);
+  return R;
+}
+function stateAt(R, i){
+  const {h,l,c} = R.S;
+  const a = MA_P.map(p => R.ma[p][i]);
+  const maOk = a.every(Number.isFinite);
+  const po = !maOk ? 0 : (a[0]>a[1]&&a[1]>a[2]&&a[2]>a[3]) ? 1 : (a[0]<a[1]&&a[1]<a[2]&&a[2]<a[3]) ? -1 : 0;
+  let cp=0, ck=0, tk=0, cTop=NaN, cBot=NaN;
+  if (i-OFF >= 0 && Number.isFinite(R.spB[i-OFF])){
+    cTop = Math.max(R.spA[i-OFF], R.spB[i-OFF]); cBot = Math.min(R.spA[i-OFF], R.spB[i-OFF]);
+    cp = c[i] > cTop ? 1 : c[i] < cBot ? -1 : 0;
+  }
+  if (Number.isFinite(R.kij[i])) tk = sgn(R.ten[i] - R.kij[i]);
+  if (i-OFF >= 0) ck = c[i] > h[i-OFF] ? 1 : c[i] < l[i-OFF] ? -1 : 0;
+  const sy = (tk===1&&cp===1&&ck===1) ? 1 : (tk===-1&&cp===-1&&ck===-1) ? -1 : 0;
+  const kd = (i>0 && Number.isFinite(R.kij[i-1])) ? sgn(R.kij[i]-R.kij[i-1]) : 0;
+  return {po, cp, tk, ck, sy, kd, kij:R.kij[i], ten:R.ten[i], close:c[i], cTop, cBot, enough: maOk && Number.isFinite(cTop)};
+}
+function pivots(h, l, k){
+  const n = h.length, P = [];
+  const add = (t,p,i) => {
+    const last = P[P.length-1];
+    if (last && last.t === t){ if ((t===1 && p>last.p) || (t===-1 && p<last.p)){ last.p=p; last.i=i; } }
+    else P.push({t,p,i});
+  };
+  for (let i=k;i<n-k;i++){
+    let isH = true, isL = true;
+    for (let j=i-k;j<=i+k;j++){
+      if (j===i) continue;
+      if (j<i){ if (h[j] >  h[i]) isH=false; if (l[j] <  l[i]) isL=false; }
+      else    { if (h[j] >= h[i]) isH=false; if (l[j] <= l[i]) isL=false; }
+      if (!isH && !isL) break;
+    }
+    if (isH) add(1, h[i], i);
+    if (isL) add(-1, l[i], i);
+  }
+  return P;
+}
+function waveInfo(R){
+  const P = R.piv, L = R.S.t.length-1, c = R.S.c[L];
+  if (P.length < 3) return null;
+  const A=P[P.length-3], B=P[P.length-2], C=P[P.length-1];
+  const up = C.t === -1;
+  let status, note, dir;
+  if (up){
+    if (c > B.p){ status='上昇N波動 完成'; note=`B（${fmt(B.p)}）を上抜け。上値目標の到達を見る段階`; dir=1; }
+    else if (C.p > A.p){ status='上昇N波動 形成中'; note='安値を切り上げて押しを作った段階。B越えで完成'; dir=1; }
+    else { status='安値切り下げ'; note='下降波動の途中。戻りがBを越えるまでは下目線'; dir=-1; }
+  } else {
+    if (c < B.p){ status='下降N波動 完成'; note=`B（${fmt(B.p)}）を下抜け。下値目標の到達を見る段階`; dir=-1; }
+    else if (C.p < A.p){ status='下降N波動 形成中'; note='高値を切り下げて戻りを作った段階。B割れで完成'; dir=-1; }
+    else { status='高値切り上げ'; note='上昇波動の途中。押しがBを割るまでは上目線'; dir=1; }
+  }
+  const tg = up
+    ? {N:C.p+(B.p-A.p), V:B.p+(B.p-C.p), E:B.p+(B.p-A.p), NT:C.p+(C.p-A.p)}
+    : {N:C.p-(A.p-B.p), V:B.p-(C.p-B.p), E:B.p-(A.p-B.p), NT:C.p-(A.p-C.p)};
+  const elapsed = L - C.i;
+  const nextK = KIHON.find(k => k > elapsed);
+  const legs = [];
+  for (let j=Math.max(1,P.length-4); j<P.length; j++){
+    const a=P[j-1], b=P[j]; const bars=b.i-a.i;
+    legs.push({a,b,bars,diff:b.p-a.p,hit:KIHON.find(k=>Math.abs(k-bars)<=1)});
+  }
+  return {A,B,C,up,status,note,dir,tg,elapsed,nextK,taAB:C.i+(B.i-A.i),taBC:C.i+(C.i-B.i),abBars:B.i-A.i,bcBars:C.i-B.i,legs,L};
+}
+
+/* ===================== データ取得（無料API） ===================== */
+// Binance：登録不要。PAXG（金1トロイオンス裏付けのトークン）の値動きは金スポットとほぼ同じ。
+// Twelve Data：無料登録のAPIキーで XAU/USD スポット。無料枠は1日800回・1分8回。
+const SRC = {
+  binance:{name:'Binance PAXG/USDT', sym:'PAXG/USDT（金連動）', live:15,  other:300},
+  twelve: {name:'Twelve Data XAU/USD', sym:'XAU/USD',           live:180, other:3600}
+};
+const BN = {'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d'};
+const TD = {'1':'1min','5':'5min','15':'15min','60':'1h','240':'4h','D':'1day'};
+const BN_HOSTS = ['https://data-api.binance.vision', 'https://api.binance.com'];
+
+async function getJSON(url, ms){
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms || 12000);
+  try{
+    const r = await fetch(url, {signal:ac.signal, cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(tm); }
+}
+const emptySeries = () => ({t:[],o:[],h:[],l:[],c:[]});
+async function fetchBinance(k){
+  let last = null;
+  for (const host of BN_HOSTS){
+    try{
+      const j = await getJSON(`${host}/api/v3/klines?symbol=PAXGUSDT&interval=${BN[k]}&limit=1000`);
+      if (!Array.isArray(j)) throw new Error('想定外の応答');
+      const s = emptySeries();
+      for (const r of j){ s.t.push(+r[0]); s.o.push(+r[1]); s.h.push(+r[2]); s.l.push(+r[3]); s.c.push(+r[4]); }
+      return s;
+    } catch(e){ last = e; }
+  }
+  throw new Error('Binanceに接続できません' + (last && last.name !== 'AbortError' ? `（${last.message}）` : '（タイムアウト）'));
+}
+async function fetchTwelve(k){
+  if (!S.key) throw new Error('Twelve DataのAPIキーを入力してください');
+  const j = await getJSON(`https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=${TD[k]}&outputsize=1000&timezone=UTC&order=ASC&apikey=${encodeURIComponent(S.key)}`);
+  if (!j || j.status === 'error' || !Array.isArray(j.values)) throw new Error('Twelve Data：' + ((j && j.message) || '取得できませんでした'));
+  const rows = [];
+  for (const v of j.values){
+    const m = String(v.datetime).match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (!m) continue;
+    rows.push([Date.UTC(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)), +v.open, +v.high, +v.low, +v.close]);
+  }
+  rows.sort((a,b) => a[0]-b[0]);
+  const s = emptySeries();
+  for (const r of rows){ if (r.slice(1).every(Number.isFinite)){ s.t.push(r[0]); s.o.push(r[1]); s.h.push(r[2]); s.l.push(r[3]); s.c.push(r[4]); } }
+  return s;
+}
+const inflight = {};
+function fetchTF(k){
+  if (inflight[k]) return inflight[k];
+  const src = S.src;
+  const p = (async () => {
+    const s = src === 'twelve' ? await fetchTwelve(k) : await fetchBinance(k);
+    if (src !== S.src) return;                       // 取得中にデータ元が変わった
+    if (s.t.length < 10) throw new Error('データが空です');
+    const old = S.res[k], v = S.view[k];
+    const keep = (old && v) ? (old.S.t.length-1) - v.right : null;   // 右端からの位置を保つ
+    S.series[k] = s; S.fetched[k] = Date.now();
+    S.res[k] = calc(s, S.piv[k]);
+    const L = s.t.length-1;
+    if (keep === null) resetView(k, true); else v.right = clamp(L - keep, 10, L + 180);
+  })();
+  inflight[k] = p;
+  p.finally(() => { delete inflight[k]; }).catch(() => {});
+  return p;
+}
+let busy = false;
+async function refresh(list){
+  if (busy) return; busy = true;
+  const errs = [];
+  try{
+    if (S.src === 'twelve'){ for (const k of list){ try{ await fetchTF(k); } catch(e){ errs.push(e.message); } } }
+    else (await Promise.allSettled(list.map(fetchTF))).forEach(x => { if (x.status === 'rejected') errs.push(x.reason.message); });
+  } finally { busy = false; }
+  S.err = errs[0] || '';
+  if (!errs.length || Object.keys(S.res).length) S.lastAt = Date.now();
+  renderAll();
+}
+function dueList(){
+  const src = SRC[S.src], now = Date.now(), due = [];
+  const stale = (k, sec) => !S.fetched[k] || now - S.fetched[k] >= sec*1000;
+  if (stale(S.tf, src.live)) due.push(S.tf);
+  for (const t of TFS) if (t.k !== S.tf && stale(t.k, src.other)) due.push(t.k);
+  if (S.src === 'twelve' && !S.key) return [];
+  return due;
+}
+function tick(){
+  if (!document.hidden && !busy){ const d = dueList(); if (d.length) refresh(d); }
+  renderFeed();
+}
+function resetView(k, force){
+  const R = S.res[k]; if (!R) return;
+  const L = R.S.t.length-1;
+  const v = S.view[k];
+  if (!v || force) S.view[k] = {right: L + 24, count: Math.min(170, L + 34)};
+  else v.right = clamp(v.right, 10, L + 180);
+}
+function switchSource(src){
+  S.src = src; S.series = {}; S.res = {}; S.view = {}; S.fetched = {}; S.err = ''; S.lastAt = 0;
+  savePrefs(); renderAll(); tick();
+}
+function savePrefs(){
+  try{ localStorage.setItem(PREFS, JSON.stringify({src:S.src, key:S.key, tf:S.tf, piv:S.piv})); } catch(e){}
+}
+function loadPrefs(){
+  try{
+    const j = JSON.parse(localStorage.getItem(PREFS) || 'null'); if (!j) return;
+    if (SRC[j.src]) S.src = j.src;
+    if (typeof j.key === 'string') S.key = j.key;
+    if (TF[j.tf]) S.tf = j.tf;
+    if (j.piv) for (const k in j.piv) if (TF[k] && Number.isFinite(+j.piv[k])) S.piv[k] = clamp(+j.piv[k], 2, 30);
+  } catch(e){}
+}
+
+/* ===================== チャート描画 ===================== */
+const cv = $('#chart');
+let raf = 0;
+const requestDraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
+let geom = null;
+
+function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
+
+function draw(){
+  const ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const C = tokens();
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
+  const R = S.res[S.tf];
+  if (!R){ ctx.fillStyle = C.mute; ctx.font = `14px ${C.body}`; ctx.fillText(S.err && !S.fetched[S.tf] ? S.err : '価格を取得しています…', 20, 40); geom = null; return; }
+
+  const AX = W < 520 ? 62 : 74, TB = 22, pw = W-AX, ph = H-TB;
+  const v = S.view[S.tf], L = R.S.t.length-1, m = TF[S.tf].m;
+  const bw = pw / v.count;
+  const X = i => pw - (v.right - i)*bw - bw/2;
+  const i0 = Math.max(0, Math.floor(v.right - v.count) - 1), i1 = Math.ceil(v.right) + 1;
+  const tAt = i => i <= L ? R.S.t[Math.max(0,i)] : R.S.t[L] + (i-L)*m*60000;
+
+  // 価格レンジ
+  let lo = Infinity, hi = -Infinity;
+  const inc = x => { if (Number.isFinite(x)){ if (x<lo) lo=x; if (x>hi) hi=x; } };
+  for (let i=i0;i<=Math.min(i1,L);i++){
+    inc(R.S.h[i]); inc(R.S.l[i]);
+    if (S.layers.ma) MA_P.forEach(p => inc(R.ma[p][i]));
+    if (S.layers.ichi){ inc(R.ten[i]); inc(R.kij[i]); }
+  }
+  if (S.layers.ichi) for (let i=Math.max(i0,OFF); i<=Math.min(i1, L+OFF); i++){ inc(R.spA[i-OFF]); inc(R.spB[i-OFF]); }
+  if (!Number.isFinite(lo)){ lo = R.S.l[L]; hi = R.S.h[L]; }
+  const pv = (hi-lo)*0.07 || 1; lo -= pv; hi += pv;
+  const Y = p => ph - (p-lo)/(hi-lo)*ph;
+  geom = {X, Y, pw, ph, bw, v, L, lo, hi, AX, W, H};
+
+  // 格子
+  ctx.font = `11px ${C.num}`; ctx.textBaseline = 'middle';
+  const ps = niceStep((hi-lo)/7);
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  for (let p = Math.ceil(lo/ps)*ps; p <= hi; p += ps){
+    const y = Math.round(Y(p))+.5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(pw,y); ctx.stroke();
+  }
+  const tstep = Math.max(1, niceStep(v.count/ (W<520?4:7)));
+  for (let i = Math.ceil(i0/tstep)*tstep; i <= i1; i += tstep){
+    const x = Math.round(X(i))+.5; if (x<0||x>pw) continue;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,ph); ctx.stroke();
+  }
+
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,pw,ph); ctx.clip();
+
+  // 雲
+  if (S.layers.ichi){
+    for (let i=Math.max(i0,OFF); i<Math.min(i1, L+OFF); i++){
+      const a0=R.spA[i-OFF], b0=R.spB[i-OFF], a1=R.spA[i+1-OFF], b1=R.spB[i+1-OFF];
+      if (!(Number.isFinite(a0)&&Number.isFinite(b0)&&Number.isFinite(a1)&&Number.isFinite(b1))) continue;
+      ctx.fillStyle = (a0+a1 >= b0+b1) ? C.kumoUp : C.kumoDn;
+      ctx.beginPath(); ctx.moveTo(X(i),Y(a0)); ctx.lineTo(X(i+1),Y(a1)); ctx.lineTo(X(i+1),Y(b1)); ctx.lineTo(X(i),Y(b0)); ctx.closePath(); ctx.fill();
+    }
+    poly(ctx, i => R.spA[i-OFF], Math.max(i0,OFF), Math.min(i1,L+OFF), C.kumoUpL, 1);
+    poly(ctx, i => R.spB[i-OFF], Math.max(i0,OFF), Math.min(i1,L+OFF), C.kumoDnL, 1);
+  }
+
+  const W2 = R.wave;
+  // 時間論
+  if (S.layers.time && W2){
+    ctx.font = `10px ${C.num}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const origins = [[W2.C, C.time, 1], [W2.B, C.mute, .55]];
+    for (const [o, col, a] of origins){
+      ctx.globalAlpha = a;
+      for (const k of KIHON){
+        const x = X(o.i + k); if (x < 0 || x > pw) continue;
+        ctx.strokeStyle = col; ctx.setLineDash([2,4]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(Math.round(x)+.5, 0); ctx.lineTo(Math.round(x)+.5, ph); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = col; ctx.fillText(String(k), x, 4 + (o===W2.B ? 13 : 0));
+      }
+    }
+    ctx.globalAlpha = 1;
+    for (const [x0, nm] of [[W2.taAB, `対等 ${W2.abBars}`], [W2.taBC, `対等 ${W2.bcBars}`]]){
+      const x = X(x0); if (x < 0 || x > pw) continue;
+      ctx.strokeStyle = C.taito; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.taito; ctx.textBaseline = 'bottom'; ctx.fillText(nm, x, ph-4); ctx.textBaseline = 'top';
+    }
+  }
+
+  // 移動平均
+  if (S.layers.ma){
+    const wd = {5:1, 20:1.5, 75:1.7, 210:2.4};
+    MA_P.forEach(p => poly(ctx, i => R.ma[p][i], i0, Math.min(i1,L), C.ma[p], wd[p]));
+  }
+  // 一目
+  if (S.layers.ichi){
+    poly(ctx, i => R.ten[i], i0, Math.min(i1,L), C.tenkan, 1.2);
+    poly(ctx, i => R.kij[i], i0, Math.min(i1,L), C.kijun, 1.9);
+    poly(ctx, i => R.S.c[i+OFF], Math.max(i0,0), Math.min(i1, L-OFF), C.chikou, 1.2);
+  }
+
+  // ローソク足
+  const cw = Math.max(1, Math.min(14, bw*0.68));
+  for (let i=Math.max(0,i0); i<=Math.min(i1,L); i++){
+    const o=R.S.o[i], h=R.S.h[i], l=R.S.l[i], c=R.S.c[i], x=X(i);
+    const col = c >= o ? C.up : C.down;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(x)+.5, Y(h)); ctx.lineTo(Math.round(x)+.5, Y(l)); ctx.stroke();
+    const yt = Y(Math.max(o,c)), yb = Y(Math.min(o,c));
+    if (c >= o && cw > 4){ ctx.fillStyle = C.bg; ctx.fillRect(x-cw/2, yt, cw, Math.max(1,yb-yt)); ctx.strokeRect(Math.round(x-cw/2)+.5, Math.round(yt)+.5, Math.round(cw)-1, Math.max(1,Math.round(yb-yt))); }
+    else ctx.fillRect(x-cw/2, yt, cw, Math.max(1,yb-yt));
+  }
+
+  // 三役好転・逆転とねじれ
+  if (S.layers.ichi){
+    ctx.font = `bold 10px ${C.body}`; ctx.textAlign = 'center';
+    for (let i=Math.max(1,i0); i<=Math.min(i1,L); i++){
+      if (R.sy[i]===1 && R.sy[i-1]!==1){ tri(ctx, X(i), Y(R.S.l[i])+10, 1, C.up); if (bw>5){ ctx.fillStyle=C.up; ctx.textBaseline='top'; ctx.fillText('三役好転', X(i), Y(R.S.l[i])+17); } }
+      if (R.sy[i]===-1 && R.sy[i-1]!==-1){ tri(ctx, X(i), Y(R.S.h[i])-10, -1, C.down); if (bw>5){ ctx.fillStyle=C.down; ctx.textBaseline='bottom'; ctx.fillText('三役逆転', X(i), Y(R.S.h[i])-17); } }
+    }
+    ctx.font = `bold 11px ${C.num}`; ctx.textBaseline = 'top';
+    for (let i=Math.max(i0,OFF+1); i<=Math.min(i1,L+OFF); i++){
+      const j = i-OFF, a=R.spA[j]-R.spB[j], b=R.spA[j-1]-R.spB[j-1];
+      if (Number.isFinite(a)&&Number.isFinite(b)&&sgn(a)!==sgn(b)&&sgn(a)!==0){
+        ctx.fillStyle = C.gold; ctx.fillText('✕', X(i), 30);
+        if (bw>4){ ctx.font = `10px ${C.body}`; ctx.fillText('ねじれ', X(i), 43); ctx.font = `bold 11px ${C.num}`; }
+      }
+    }
+  }
+
+  // 波動（ジグザグ）
+  if (S.layers.wave && R.piv.length){
+    const P = R.piv.slice(-16);
+    ctx.strokeStyle = C.zig; ctx.lineWidth = 1.6; ctx.setLineDash([]);
+    ctx.beginPath(); P.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+    ctx.font = `10px ${C.num}`; ctx.textAlign = 'center';
+    const names = W2 ? new Map([[W2.A,'A'],[W2.B,'B'],[W2.C,'C']]) : new Map();
+    P.forEach(p => {
+      const x=X(p.i); if (x<-20||x>pw+20) return;
+      const nm = names.get(p);
+      ctx.fillStyle = nm ? C.ink : C.zig;
+      ctx.textBaseline = p.t===1 ? 'bottom' : 'top';
+      const y = Y(p.p) + (p.t===1 ? -4 : 4);
+      ctx.fillText(nm ? `${nm} ${fmt(p.p)}` : fmt(p.p), x, y);
+    });
+  }
+
+  // 値幅観測
+  if (S.layers.tgt && W2){
+    const cols = {N:C.gold, V:C.ma75, E:C.ma210, NT:C.chikou};
+    ctx.font = `10px ${C.num}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    for (const key of ['N','V','E','NT']){
+      const val = W2.tg[key], y = Y(val); if (y < -2 || y > ph+2) continue;
+      ctx.strokeStyle = cols[key]; ctx.lineWidth = 1.1; ctx.setLineDash([7,4]);
+      ctx.beginPath(); ctx.moveTo(Math.max(0,X(W2.C.i)), Math.round(y)+.5); ctx.lineTo(pw, Math.round(y)+.5); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = cols[key]; ctx.fillText(`${key}計算値 ${fmt(val)}`, pw-6, y-2);
+    }
+  }
+  ctx.restore();
+
+  // 現在値
+  const last = R.S.c[L], yl = Y(last);
+  const lcol = last >= R.S.o[L] ? C.up : C.down;
+  ctx.strokeStyle = lcol; ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, Math.round(yl)+.5); ctx.lineTo(pw, Math.round(yl)+.5); ctx.stroke(); ctx.setLineDash([]);
+
+  // 軸
+  ctx.fillStyle = C.bg; ctx.fillRect(pw,0,AX,H); ctx.fillRect(0,ph,pw,TB);
+  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(pw+.5,0); ctx.lineTo(pw+.5,H); ctx.moveTo(0,ph+.5); ctx.lineTo(pw,ph+.5); ctx.stroke();
+  ctx.font = `11px ${C.num}`; ctx.fillStyle = C.mute; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let p = Math.ceil(lo/ps)*ps; p <= hi; p += ps){ const y = Y(p); if (y>8 && y<ph-8) ctx.fillText(fmt(p), pw+6, y); }
+  ctx.textAlign = 'center';
+  for (let i = Math.ceil(i0/tstep)*tstep; i <= i1; i += tstep){
+    const x = X(i); if (x < 30 || x > pw-30) continue;
+    ctx.fillStyle = i > L ? C.line : C.mute;
+    ctx.fillText(fmtT(tAt(i), m, true), x, ph + TB/2);
+  }
+  tag(ctx, pw, yl, AX, fmt(last), lcol, '#fff', C);
+
+  // 十字線
+  if (S.hover){
+    const hx = S.hover.x, hy = S.hover.y;
+    if (hx >= 0 && hx <= pw && hy >= 0 && hy <= ph){
+      const idx = Math.round(v.right - (pw - hx - bw/2)/bw), x = X(idx);
+      ctx.strokeStyle = C.cross; ctx.globalAlpha = .45; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.moveTo(0,Math.round(hy)+.5); ctx.lineTo(pw,Math.round(hy)+.5); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      const price = lo + (ph-hy)/ph*(hi-lo);
+      tag(ctx, pw, hy, AX, fmt(price), C.ink, C.bg, C);
+      const tl = fmtT(tAt(idx), m, false), tw = ctx.measureText(tl).width + 12;
+      ctx.fillStyle = C.ink; ctx.fillRect(clamp(x-tw/2,0,pw-tw), ph+2, tw, TB-4);
+      ctx.fillStyle = C.bg; ctx.textAlign = 'center'; ctx.fillText(tl, clamp(x,tw/2,pw-tw/2), ph+TB/2);
+    }
+  }
+  renderReadout();
+}
+function poly(ctx, f, a, b, col, w){
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash([]); ctx.beginPath();
+  let on = false;
+  for (let i=a;i<=b;i++){
+    const val = f(i);
+    if (!Number.isFinite(val)){ on = false; continue; }
+    const x = geom.X(i), y = geom.Y(val);
+    on ? ctx.lineTo(x,y) : ctx.moveTo(x,y); on = true;
+  }
+  ctx.stroke();
+}
+function tri(ctx, x, y, dir, col){
+  ctx.fillStyle = col; ctx.beginPath();
+  ctx.moveTo(x, y - 5*dir); ctx.lineTo(x-5, y + 4*dir); ctx.lineTo(x+5, y + 4*dir); ctx.closePath(); ctx.fill();
+}
+function tag(ctx, pw, y, AX, text, bg, fg, C){
+  ctx.fillStyle = bg; ctx.fillRect(pw+1, y-9, AX-2, 18);
+  ctx.fillStyle = fg; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = `600 11px ${C.num}`;
+  ctx.fillText(text, pw+6, y);
+}
+
+/* ===================== 読み取り表示 ===================== */
+function renderReadout(){
+  const el = $('#readout'), R = S.res[S.tf];
+  if (!R || !geom){ el.textContent = ''; return; }
+  const L = geom.L; let i = L;
+  if (S.hover){ i = Math.round(geom.v.right - (geom.pw - S.hover.x - geom.bw/2)/geom.bw); }
+  if (i < 0 || i > L) i = clamp(i, 0, L);
+  const s = R.S, m = TF[S.tf].m;
+  const cA = i-OFF>=0 ? R.spA[i-OFF] : NaN, cB = i-OFF>=0 ? R.spB[i-OFF] : NaN;
+  const k = (c,l,v) => `<span class="k"><i style="background:var(${c})"></i>${l} <b>${fmt(v)}</b></span>`;
+  el.innerHTML =
+    `<span><b>${fmtT(s.t[i], m, false)}</b></span>` +
+    `<span>始 <b>${fmt(s.o[i])}</b> 高 <b>${fmt(s.h[i])}</b> 安 <b>${fmt(s.l[i])}</b> 終 <b>${fmt(s.c[i])}</b></span>` +
+    k('--ma5','MA5',R.ma[5][i]) + k('--ma20','MA20',R.ma[20][i]) + k('--ma75','MA75',R.ma[75][i]) + k('--ma210','MA210',R.ma[210][i]) +
+    k('--tenkan','転換',R.ten[i]) + k('--kijun','基準',R.kij[i]) +
+    `<span class="k"><i style="background:var(--kumo-up-line)"></i>雲 <b>${fmt(Math.min(cA,cB))}–${fmt(Math.max(cA,cB))}</b></span>`;
+}
+
+/* ===================== 分析レール ===================== */
+const chip = (v, t) => `<span class="chip ${cls(v)}">${t}</span>`;
+function renderTop(){
+  const R = S.res[S.tf], D = S.series['D'];
+  if (!R){ $('#qPx').textContent='—'; $('#qChg').textContent=''; return; }
+  const L = R.S.t.length-1;
+  $('#qPx').textContent = fmt(R.S.c[L]);
+  $('#qLbl').textContent = fmtT(R.S.t[L], TF[S.tf].m, false);
+  if (D && D.t.length > 1){
+    const n = D.t.length, ch = D.c[n-1]-D.c[n-2], pc = ch/D.c[n-2]*100;
+    const q = $('#qChg'); q.textContent = `前日比 ${ch>=0?'+':''}${fmt(ch)}（${pc>=0?'+':''}${pc.toFixed(2)}%）`;
+    q.className = 'chg ' + (ch>=0?'up':'dn');
+  } else $('#qChg').textContent = '';
+}
+function renderFeed(){
+  const el = $('#feed'), src = SRC[S.src];
+  $('#sym').textContent = src.sym;
+  $('#srcSel').value = S.src;
+  $('#keyBox').hidden = S.src !== 'twelve';
+  let st, txt;
+  if (S.src === 'twelve' && !S.key){ st = 'error'; txt = 'Twelve Dataの無料APIキーを入力してください（twelvedata.com で登録すると発行されます）'; }
+  else if (!S.lastAt){ st = S.err ? 'error' : 'loading'; txt = S.err || `${src.name} から価格を取得しています…`; }
+  else {
+    const f = S.fetched[S.tf];
+    const left = f ? Math.max(0, Math.ceil((f + src.live*1000 - Date.now())/1000)) : 0;
+    const d = new Date(S.lastAt), hm = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    if (S.err){ st = 'error'; txt = `${S.err}。前回取得した値（${hm}）を表示中`; }
+    else { st = 'live'; txt = `${src.name} 自動更新中・最終取得 ${hm}・次の更新まで ${busy ? '取得中' : left + '秒'}`; }
+  }
+  el.dataset.state = st;
+  $('#feedTxt').textContent = txt;
+}
+function renderTF(){
+  const seg = $('#tfSeg');
+  seg.innerHTML = TFS.map(t => `<button type="button" data-tf="${t.k}" aria-pressed="${t.k===S.tf}">${t.label}</button>`).join('');
+  $('#pivN').value = S.piv[S.tf];
+}
+function totals(st){ const s = st.po + st.cp + st.tk + st.ck; return {s, v: s>=1?1:s<=-1?-1:0, t: s>=3?'強気':s<=-3?'弱気':s>=1?'やや強':s<=-1?'やや弱':'中立'}; }
+function renderMTF(){
+  const rows = TFS.map(t => {
+    const R = S.res[t.k];
+    if (!R) return `<tr data-tf="${t.k}" class="${t.k===S.tf?'cur':''}"><td>${t.label}</td><td colspan="7" class="mu">取得中…</td></tr>`;
+    const st = stateAt(R, R.S.t.length-1);
+    if (!st.enough) return `<tr data-tf="${t.k}" class="${t.k===S.tf?'cur':''}"><td>${t.label}</td><td colspan="7" class="mu">本数不足（${R.S.t.length}本）</td></tr>`;
+    const tt = totals(st);
+    const arrow = st.kd>0 ? '↗' : st.kd<0 ? '↘' : '→';
+    return `<tr data-tf="${t.k}" class="${t.k===S.tf?'cur':''}">
+      <td>${t.label}</td>
+      <td>${chip(st.po, st.po===1?'上昇PO':st.po===-1?'下降PO':'混在')}</td>
+      <td>${chip(st.cp, st.cp===1?'雲上':st.cp===-1?'雲下':'雲中')}</td>
+      <td>${chip(st.tk, st.tk===1?'転&gt;基':st.tk===-1?'転&lt;基':'同値')}</td>
+      <td>${chip(st.ck, st.ck===1?'上':st.ck===-1?'下':'絡')}</td>
+      <td>${chip(st.sy, st.sy===1?'好転':st.sy===-1?'逆転':'−')}</td>
+      <td class="kj ${st.close>st.kij?'up-t':'dn-t'}">${fmt(st.kij)}${arrow}</td>
+      <td>${chip(tt.v, tt.t)}</td></tr>`;
+  }).join('');
+  $('#mtf').innerHTML = `<thead><tr><th>足</th><th>MA配列</th><th>雲</th><th>転/基</th><th>遅行</th><th>三役</th><th>基準線</th><th>総合</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const pick = k => { const R = S.res[k]; if (!R) return null; const st = stateAt(R, R.S.t.length-1); return st.enough ? totals(st).v : null; };
+  const hs = ['60','240','D'].map(pick);
+  const el = $('#verdict');
+  let v, d, c;
+  if (hs.every(x => x === 1)){ v='押し目買い目線'; d='1時間・4時間・日足がそろって強気。下位足の押しで買いを探す局面'; c='up'; }
+  else if (hs.every(x => x === -1)){ v='戻り売り目線'; d='1時間・4時間・日足がそろって弱気。下位足の戻りで売りを探す局面'; c='dn'; }
+  else if (hs.some(x => x === null)){ v='判定保留'; d='上位足の本数が足りないため判定できません'; c='neu'; }
+  else { v='様子見'; d='上位足の方向がそろっていない。保ち合いを想定し、そろうのを待つ局面'; c='neu'; }
+  el.className = 'verdict ' + c;
+  el.innerHTML = `<span class="v">${v}</span><span class="d">${d}</span>`;
+}
+function barType(cur, prev){
+  if (!prev) return '—';
+  if (cur.h > prev.h && cur.l >= prev.l) return '上げ足';
+  if (cur.l < prev.l && cur.h <= prev.h) return '下げ足';
+  if (cur.h > prev.h && cur.l < prev.l) return '包み足';
+  return 'はらみ足';
+}
+function renderGroups(){
+  const D = S.series['D'];
+  const sets = [
+    ['3', '#cv3', '#t3', D ? groupBars(D, (i) => Math.floor((i + S.off3)/3)) : null],
+    ['9', '#cv9', '#t9', D ? groupBars(D, (i,t) => { const d = Math.floor(t/86400000); const w = Math.floor((d+3)/7); return Math.floor((w + S.off9)/9); }) : null]
+  ];
+  const C = tokens();
+  for (const [nm, cid, tid, G] of sets){
+    const c = $(cid), ctx = c.getContext('2d'), dpr = window.devicePixelRatio||1, W = c.clientWidth, H = c.clientHeight;
+    c.width = Math.round(W*dpr); c.height = Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle = C.bg; ctx.fillRect(0,0,W,H);
+    if (!G || G.length < 2){ $(tid).innerHTML = '<span class="mu">日足を取得中…</span>'; continue; }
+    const B = G.slice(-14), lo = Math.min(...B.map(b=>b.l)), hi = Math.max(...B.map(b=>b.h));
+    const y = p => 4 + (hi-p)/(hi-lo||1)*(H-8), bw = W/B.length;
+    const cur = G[G.length-1], prev = G[G.length-2], half = (cur.h+cur.l)/2;
+    ctx.strokeStyle = C.gold; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(0, y(half)); ctx.lineTo(W, y(half)); ctx.stroke(); ctx.setLineDash([]);
+    B.forEach((b,j) => {
+      const x = j*bw + bw/2, col = b.c >= b.o ? C.up : C.down;
+      ctx.strokeStyle = col; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(x, y(b.h)); ctx.lineTo(x, y(b.l)); ctx.stroke();
+      const t = y(Math.max(b.o,b.c)), bt = y(Math.min(b.o,b.c));
+      ctx.fillRect(x-bw*0.3, t, bw*0.6, Math.max(1, bt-t));
+    });
+    let run = 1; const ty = barType(cur, prev);
+    for (let j=G.length-2; j>=1; j--){ if (barType(G[j], G[j-1]) === ty) run++; else break; }
+    const close = cur.c, above = close > half;
+    $(tid).innerHTML =
+      `<div><span class="chip ${cur.c>=cur.o?'up':'dn'}">${cur.c>=cur.o?'陽線':'陰線'}</span> <b>${ty}</b>${run>1?` <span class="mu">${run}本連続</span>`:''}</div>` +
+      `<div class="num">半値 ${fmt(half)} <span class="${above?'up-t':'dn-t'}">の${above?'上':'下'}</span></div>` +
+      `<div class="mu">現在の足は${cur.n}営業日目</div>`;
+  }
+}
+const rel = n => n > 0 ? `あと${n}本` : n === 0 ? '今の足' : `${-n}本前に経過`;
+function renderWave(){
+  const R = S.res[S.tf], t = TF[S.tf].label;
+  $('#wTitle').textContent = `波動と値幅観測（${t}）`;
+  $('#tTitle').textContent = `時間論（${t}）`;
+  $('#lTitle').textContent = `相場水準（${t}・期間ごとの半値）`;
+  const el = $('#wave'), te = $('#time'), le = $('#levels');
+  if (!R){ el.innerHTML = te.innerHTML = le.innerHTML = '<span class="mu">データなし</span>'; return; }
+  const W = R.wave, L = R.S.t.length-1, c = R.S.c[L], m = TF[S.tf].m;
+  if (!W){ el.innerHTML = te.innerHTML = '<span class="mu">山と谷が3つ以上必要です。判定本数を小さくしてください</span>'; }
+  else {
+    const sw = {N:'--gold', V:'--ma75', E:'--ma210', NT:'--chikou'};
+    const desc = {N:'C ＋ (B − A)', V:'B ＋ (B − C)', E:'B ＋ (B − A)', NT:'C ＋ (C − A)'};
+    const rows = ['N','V','E','NT'].map(k => {
+      const val = W.tg[k], dist = val - c, reached = W.up ? c >= val : c <= val;
+      return `<tr><td><span class="sw" style="background:var(${sw[k]})"></span>${k}計算値<div class="mu" style="font-size:.68rem">${W.up?desc[k]:desc[k].replace(/＋/g,'−')}</div></td><td class="num">${fmt(val)}</td><td class="num ${reached?'mu':(dist>0?'up-t':'dn-t')}">${reached?'到達済み':(dist>0?'+':'')+fmt(dist)}</td></tr>`;
+    }).join('');
+    el.innerHTML =
+      `<div class="wstat ${W.dir>0?'up-t':'dn-t'}">${W.status}</div><div style="font-size:.8rem">${W.note}</div>` +
+      `<dl class="kv" style="margin-top:8px">` +
+      `<dt>A ${W.up?'安値':'高値'}</dt><dd class="num">${fmt(W.A.p)} <span class="mu">${fmtT(R.S.t[W.A.i], m, true)}</span></dd>` +
+      `<dt>B ${W.up?'高値':'安値'}</dt><dd class="num">${fmt(W.B.p)} <span class="mu">${fmtT(R.S.t[W.B.i], m, true)}</span></dd>` +
+      `<dt>C ${W.up?'安値':'高値'}</dt><dd class="num">${fmt(W.C.p)} <span class="mu">${fmtT(R.S.t[W.C.i], m, true)}</span></dd></dl>` +
+      `<table class="tg2"><thead><tr><th>${W.up?'上値':'下値'}目標</th><th>値</th><th>現在値から</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+    const legs = W.legs.map(g => `<tr><td>${g.diff>0?'上げ':'下げ'}</td><td class="num">${g.bars}本${g.hit?` <span class="hit">≒${g.hit}</span>`:''}</td><td class="num ${g.diff>0?'up-t':'dn-t'}">${g.diff>0?'+':''}${fmt(g.diff)}</td></tr>`).join('');
+    const nextList = KIHON.filter(k => k > W.elapsed).slice(0,3).map(k => `${k}本目（あと${k-W.elapsed}本）`).join('、');
+    te.innerHTML =
+      `<dl class="kv"><dt>起点</dt><dd>直近の${W.up?'谷':'山'} C（${fmtT(R.S.t[W.C.i], m, true)}）</dd>` +
+      `<dt>経過</dt><dd class="num"><b>${W.elapsed}本</b>${KIHON.includes(W.elapsed)?' <span class="hit">基本数値に一致</span>':''}</dd>` +
+      `<dt>次の基本数値</dt><dd>${nextList || '172本を超えています'}</dd>` +
+      `<dt>対等数値</dt><dd>A→B ${W.abBars}本を当てると C から${W.abBars}本目（${rel(W.taAB-L)}）<br>B→C ${W.bcBars}本を当てると C から${W.bcBars}本目（${rel(W.taBC-L)}）</dd></dl>` +
+      `<table class="tg2"><thead><tr><th>直近の波</th><th>日柄</th><th>値幅</th></tr></thead><tbody>${legs}</tbody></table>`;
+  }
+  const lv = LEVELS.map(p => {
+    if (L+1 < p) return `<tr><td>${p}本</td><td class="mu" colspan="2">本数不足</td></tr>`;
+    let hi=-Infinity, lo=Infinity; for (let j=L-p+1;j<=L;j++){ if (R.S.h[j]>hi) hi=R.S.h[j]; if (R.S.l[j]<lo) lo=R.S.l[j]; }
+    const md = (hi+lo)/2, nm = p===9?'転換線':p===26?'基準線':p===52?'先行スパン2':'';
+    return `<tr><td>${p}本${nm?` <span class="mu">${nm}</span>`:''}</td><td class="num">${fmt(md)}</td><td class="num ${c>md?'up-t':'dn-t'}">${c>md?'上':'下'}</td></tr>`;
+  }).join('');
+  const above = LEVELS.filter(p => { if (L+1<p) return false; let hi=-Infinity,lo=Infinity; for (let j=L-p+1;j<=L;j++){ if (R.S.h[j]>hi) hi=R.S.h[j]; if (R.S.l[j]<lo) lo=R.S.l[j]; } return c > (hi+lo)/2; }).length;
+  le.innerHTML = `<div style="font-size:.8rem">現在値は ${LEVELS.length} 期間のうち <b>${above}</b> 期間の半値より上</div>` +
+    `<table class="tg2"><thead><tr><th>期間</th><th>半値</th><th>位置</th></tr></thead><tbody>${lv}</tbody></table>`;
+}
+function renderAll(){
+  renderFeed(); renderTF(); renderTop(); renderMTF(); renderGroups(); renderWave(); requestDraw();
+}
+
+/* ===================== 操作 ===================== */
+const setTF = k => { S.tf = k; S.hover = null; savePrefs(); renderAll(); tick(); };
+$('#tfSeg').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (b) setTF(b.dataset.tf); });
+$('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
+[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time']].forEach(([id,k]) => {
+  $(id).addEventListener('change', e => { S.layers[k] = e.target.checked; requestDraw(); });
+});
+$('#pivN').addEventListener('change', e => {
+  const v = clamp(parseInt(e.target.value,10) || 5, 2, 30); e.target.value = v;
+  S.piv[S.tf] = v; savePrefs(); const R = S.res[S.tf]; if (!R) return;
+  R.piv = pivots(R.S.h, R.S.l, v); R.wave = waveInfo(R); renderWave(); requestDraw();
+});
+$('#srcSel').addEventListener('change', e => switchSource(e.target.value));
+$('#keySave').addEventListener('click', () => { S.key = $('#apiKey').value.trim(); switchSource('twelve'); });
+$('#apiKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('#keySave').click(); } });
+$('#btnNow').addEventListener('click', () => { if (!busy) refresh([S.tf, ...TFS.map(t=>t.k).filter(k => k !== S.tf)]); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+const off9 = $('#off9'); off9.innerHTML = Array.from({length:9}, (_,i) => `<option value="${i}">${i}週ずらし</option>`).join('');
+$('#off3').addEventListener('change', e => { S.off3 = +e.target.value; renderGroups(); });
+off9.addEventListener('change', e => { S.off9 = +e.target.value; renderGroups(); });
+
+function zoomAt(factor, x){
+  const v = S.view[S.tf], R = S.res[S.tf]; if (!v || !R || !geom) return;
+  const L = R.S.t.length-1, pw = geom.pw;
+  const px = x == null ? pw : x;
+  const idx = v.right - (pw - px - geom.bw/2)/geom.bw;
+  const nc = clamp(v.count*factor, 20, Math.max(40, Math.min(2000, L+200)));
+  const nbw = pw/nc;
+  v.count = nc; v.right = clamp(idx + (pw - px - nbw/2)/nbw, 10, L+180);
+  requestDraw();
+}
+$('#zIn').addEventListener('click', () => zoomAt(0.75));
+$('#zOut').addEventListener('click', () => zoomAt(1.33));
+$('#zEnd').addEventListener('click', () => { resetView(S.tf, true); requestDraw(); });
+
+const ptrs = new Map(); let drag = null, pinch = null;
+const dist = () => { const a = [...ptrs.values()]; return Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y); };
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, {x:e.offsetX, y:e.offsetY});
+  const v = S.view[S.tf]; if (!v) return;
+  if (ptrs.size === 1) drag = {x:e.offsetX, right:v.right};
+  if (ptrs.size === 2){ drag = null; pinch = {d:dist(), count:v.count}; }
+});
+cv.addEventListener('pointermove', e => {
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, {x:e.offsetX, y:e.offsetY});
+  const v = S.view[S.tf], R = S.res[S.tf]; if (!v || !R || !geom) return;
+  if (pinch && ptrs.size === 2){
+    const d = dist(); if (d > 10){ const L = R.S.t.length-1; v.count = clamp(pinch.count * pinch.d / d, 20, Math.max(40, Math.min(2000, L+200))); }
+  } else if (drag){
+    v.right = clamp(drag.right - (e.offsetX - drag.x)/geom.bw, 10, R.S.t.length-1+180);
+  }
+  S.hover = (e.pointerType === 'mouse' || drag) ? {x:e.offsetX, y:e.offsetY} : S.hover;
+  requestDraw();
+});
+const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null; };
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ S.hover = null; requestDraw(); } });
+cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY > 0 ? 1.12 : 0.89, e.offsetX); }, {passive:false});
+
+new ResizeObserver(() => { requestDraw(); renderGroups(); }).observe(cv);
+const reTheme = () => { requestDraw(); renderGroups(); };
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme); } catch(e){}
+new MutationObserver(reTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+/* ===================== 起動 ===================== */
+loadPrefs();
+$('#apiKey').value = S.key;
+renderAll();
+tick();
+setInterval(tick, 1000);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(requestDraw);
+})();
+</script>
+</body>
+</html>
