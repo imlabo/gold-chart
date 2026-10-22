@@ -163,6 +163,17 @@ table.tg2 td:first-child,table.tg2 th:first-child{text-align:left}
 .sr .why{grid-column:2 / -1;color:var(--mute);font-size:.72rem;line-height:1.45}
 .sr.now{padding:3px 0;border-bottom:1px dashed var(--line)}
 .sr.now .px{color:var(--gold)}
+.sr.isbowl .px{font-size:.86rem}
+.sr.isbowl .tag{box-shadow:0 0 0 2px currentColor inset}
+.sr .rank{font-weight:700;margin-right:6px;color:var(--ink)}
+.tg2{display:inline-block;font-size:.66rem;font-weight:700;padding:1px 6px;border-radius:999px;margin:0 4px 3px 0;border:1px solid var(--line);color:var(--ink);background:var(--panel)}
+.tg2.bowl{background:var(--gold);border-color:var(--gold);color:#fff}
+.tg2.ma{background:var(--gold-soft);border-color:var(--gold);color:var(--gold)}
+.tg2.warn{background:var(--down-bg);border-color:var(--down);color:var(--down)}
+.tg2.neck,.tg2.half,.tg2.open{color:var(--mute)}
+.rxline{margin-top:3px;color:var(--ink)}
+.warnbox{background:var(--down-bg);color:var(--down);border-radius:5px;padding:7px 10px;font-size:.76rem;margin-bottom:8px}
+.nowbox{background:var(--grid);border-radius:5px;padding:7px 10px;font-size:.76rem;margin-top:8px;line-height:1.5}
 details.help{font-size:.8rem;color:var(--mute)}
 details.help summary{cursor:pointer;color:var(--ink);font-weight:700}
 details.help p{margin:6px 0}
@@ -275,7 +286,9 @@ details.help p{margin:6px 0}
           <p><b>Binance PAXG</b>は登録不要で、15秒ごとに自動更新します。PAXGは金1トロイオンスと交換できるトークンで、値動きは金のスポット価格とほぼ同じですが、数ドルのずれと土日の値動きがあります。</p>
           <p><b>Twelve Data XAU/USD</b>は金のスポット価格そのものです。twelvedata.com で無料登録してAPIキーを貼り付けると使えます。無料枠は1日800回・1分8回までなので、表示中の時間足を2分ごとに更新し、他の時間足は切り替えたときに10分以上古ければ取り直します。</p>
           <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
-          <p>支持線・抵抗線は日足→4時間→1時間→15分の順に山と谷、基準線・先行スパン2の横ばいを集め、近い価格をまとめて点数化しています。大きい時間足、新しい反転、山と谷の両方で効いた価格、複数の時間足で重なる価格、$50・$100の節目ほど高く、その後に何度も抜けた価格は低くなります。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
+          <p>支持線・抵抗線の主役は<b>お椀の水平線</b>です。日足・4時間・1時間で、過去のトレンドの起点（戻り売り・押し目買いの起点）から大きく離れたあと価格が全戻ししてきた価格を探し、深く・大きく・初回の戻りほど強くします。1分足・5分足の小さなお椀は使いません。二重線で描き、○がその起点です。</p>
+          <p>水平線の近くに<b>移動平均線</b>（特に20と210、各時間足）があると大きく加点し、別の時間足のMAが2本以上重なればさらに加点します（右端の◆印）。ほかに三尊・逆三尊のネックライン候補、はっきりした一波の半値戻し、4時間足以上の大きなローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、基準線・先行スパン2の横ばい、$50・$100の節目を集め、近い価格をまとめて点数化します。その後に何度も抜けた価格は減点、直前にスラストがある側の水平線は警戒表示です。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
+          <p>1分足（なければ5分足）では、水平線に触れたときの反応を印で示します。★＝直近にない長さの足・ヒゲ（反発のシンボル）、◆＝接触後の20MA割れ（抜け）確定、✕＝高値安値更新フェイク。欄外には最寄りの水平線までの距離と、20MAから大きく乖離して接触した型①／水平線と20MAにサンドイッチされた型②の判定を出します。</p>
           <p>雲は26本先にずらして描き、遅行スパンは26本前に描いています。三役は「転換線が基準線より上」「価格が雲の上」「遅行スパンが26本前のローソク足より上」の3つがそろった状態です。</p>
         </details>
       </section>
@@ -306,7 +319,7 @@ const PREFS = 'gold-ichimoku-chart-prefs-v1';
 /* ===================== 状態 ===================== */
 const S = {
   tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
-  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null,
+  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null, rx:null,
   piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
   off3:0, off9:0, hover:null
 };
@@ -554,18 +567,31 @@ function loadPrefs(){
 }
 
 /* ===================== 支持線・抵抗線 ===================== */
-// 大きな時間足から順に「反転した価格」を集め、近い価格同士をまとめて強さを点数化する。
-//  ・山・谷：日足5点、4時間3点、1時間2点、15分1点。新しいものほど重く、古いものも3割は残す
-//  ・基準線・先行スパン2の横ばい（同じ値が9本以上続いた区間）：日足・4時間足のみ。一目の重要な節
-//  ・同じ価格で山と谷の両方がある（役割の入れ替わり）、複数の時間足が重なる、$50・$100の節目 で加点
-//  ・その後に終値で何度も抜けた価格は効きが弱いとみなして減点
+// 考え方（参考資料の要点）
+//  1. 「お椀の水平線」が主役：過去のトレンドの起点（戻り売り・押し目買いの起点）まで価格が全戻しする価格。
+//     日足・4時間・1時間で見つかる、深く・大きく・綺麗なお椀ほど強い。1分足・5分足の小さいお椀は使わない。
+//  2. 移動平均線との重なり：水平線の近くに 20MA・200MA（ここでは210）があると期待値が上がる。
+//     複数の時間足のMAが同じ価格に重なる（例：1時間足210MA と 日足20MA）ならさらに強い。
+//  3. そのほかの根拠：三尊・逆三尊のネックライン、はっきりしたトレンドの半値戻し、
+//     4時間足以上の印象的なローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、
+//     一目の基準線・先行スパン2の横ばい、$50・$100の節目。
+//  4. 減点：その後に何度も抜けた価格。警戒：直前にスラスト（小刻みに切り上げて突っ込む動き）がある側の水平線。
 const SR_TF = [
-  {k:'D',   w:5, piv:3, label:'日足'},
-  {k:'240', w:3, piv:4, label:'4時間'},
-  {k:'60',  w:2, piv:5, label:'1時間'},
-  {k:'15',  w:1, piv:6, label:'15分'}
+  {k:'D',   w:3,   piv:3, bowl:6,   label:'日足'},
+  {k:'240', w:2,   piv:4, bowl:4,   label:'4時間'},
+  {k:'60',  w:1.2, piv:5, bowl:2.5, label:'1時間'},
+  {k:'15',  w:0.6, piv:6, bowl:0,   label:'15分'}
 ];
 const SR_SIDE = 4;           // 上下それぞれ最大4本
+const MA_W = {               // MA重なりの重み（時間足 × 期間）
+  'D':  {20:1.6, 210:1.6, 75:0.7, 5:0.2},
+  '240':{20:1.3, 210:1.3, 75:0.6, 5:0.15},
+  '60': {20:1.1, 210:1.2, 75:0.5, 5:0.1},
+  '15': {20:0.8, 210:0.9, 75:0.3, 5:0},
+  '5':  {20:0.6, 210:0.7, 75:0.2, 5:0},
+  '1':  {20:0.5, 210:0.7, 75:0.15, 5:0}
+};
+const TFLBL = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間','D':'日足'};
 function atrOf(s, n){
   const L = s.t.length-1; if (L < n+1) return NaN;
   let sum = 0; for (let i=L-n+1;i<=L;i++) sum += Math.max(s.h[i]-s.l[i], Math.abs(s.h[i]-s.c[i-1]), Math.abs(s.l[i]-s.c[i-1]));
@@ -580,6 +606,60 @@ function flatRuns(arr, t, minLen, maxBack){
     i = j-1;
   }
   return out;
+}
+// お椀：山（谷）の後に深く離れ、いま戻ってきている価格
+function findBowls(R, f, price, range, tol, now){
+  const s = R.S, L = s.t.length-1, atr = atrOf(s, 14); if (!Number.isFinite(atr)) return [];
+  const out = [], P = pivots(s.h, s.l, f.piv);
+  const rec = t => 0.3 + 0.7 * Math.exp(-(now - t) / 86400000 / 90);
+  for (const p of P){
+    if (p.i >= L-2) continue;
+    if (Math.abs(p.p - price) > range) continue;
+    if (p.t === 1){                       // 戻り売りの起点 → 上にある抵抗
+      if (price >= p.p) continue;
+      let mn = Infinity, mnI = -1, retests = 0;
+      for (let j=p.i+1;j<=L;j++){ if (s.l[j] < mn){ mn = s.l[j]; mnI = j; } }
+      const depth = p.p - mn; if (depth < 1.5*atr) continue;            // 浅いお椀は除外
+      const back = (price - mn) / depth; if (back < 0.5) continue;      // まだ戻ってきていない
+      { let on = false; for (let j=mnI;j<=L-1;j++){ const t = s.h[j] >= p.p - tol; if (t && !on) retests++; on = t; } }
+      // 起点らしさ：山の手前で価格が下から上がってきている（トレンドの起点）
+      const pre = Math.max(0, p.i - f.piv*6); let preLo = Infinity; for (let j=pre;j<p.i;j++) preLo = Math.min(preLo, s.l[j]);
+      const origin = Number.isFinite(preLo) ? clamp((p.p - preLo)/atr/2, 0.3, 1) : 0.6;
+      const size = clamp(depth/atr/2, 0.75, 3) * clamp((L - p.i)/(f.piv*5), 0.6, 1.8);
+      out.push({p:p.p, w:f.bowl*size*origin*rec(s.t[p.i])*(retests===0 ? 1 : retests===1 ? 0.85 : retests===2 ? 0.7 : 0.5), tf:f.k, kind:'B', i:p.i, t:s.t[p.i],
+        depth, depthAtr:depth/atr, back, retests, first:retests===0});
+    } else {                               // 押し目買いの起点 → 下にある支持
+      if (price <= p.p) continue;
+      let mx = -Infinity, mxI = -1, retests = 0;
+      for (let j=p.i+1;j<=L;j++){ if (s.h[j] > mx){ mx = s.h[j]; mxI = j; } }
+      const depth = mx - p.p; if (depth < 1.5*atr) continue;
+      const back = (mx - price) / depth; if (back < 0.5) continue;
+      { let on = false; for (let j=mxI;j<=L-1;j++){ const t = s.l[j] <= p.p + tol; if (t && !on) retests++; on = t; } }
+      const pre = Math.max(0, p.i - f.piv*6); let preHi = -Infinity; for (let j=pre;j<p.i;j++) preHi = Math.max(preHi, s.h[j]);
+      const origin = Number.isFinite(preHi) ? clamp((preHi - p.p)/atr/2, 0.3, 1) : 0.6;
+      const size = clamp(depth/atr/2, 0.75, 3) * clamp((L - p.i)/(f.piv*5), 0.6, 1.8);
+      out.push({p:p.p, w:f.bowl*size*origin*rec(s.t[p.i])*(retests===0 ? 1 : retests===1 ? 0.85 : retests===2 ? 0.7 : 0.5), tf:f.k, kind:'B', i:p.i, t:s.t[p.i],
+        depth, depthAtr:depth/atr, back, retests, first:retests===0});
+    }
+  }
+  return out;
+}
+// スラスト：小刻みに高値安値を切り上げ（下げ）ながら、20MAに支えられて突っ込んでいる
+function detectThrust(){
+  const R = S.res['15'] || S.res['60']; if (!R) return 0;
+  const s = R.S, L = s.t.length-1, ma = R.ma[20]; if (L < 60) return 0;
+  const atr = atrOf(s, 14); if (!Number.isFinite(atr)) return 0;
+  const P = pivots(s.h, s.l, 2).filter(p => p.i >= L-48);
+  const lows = P.filter(p=>p.t===-1), highs = P.filter(p=>p.t===1);
+  let above = 0, below = 0; for (let j=L-40;j<=L;j++){ if (s.c[j] > ma[j]) above++; else below++; }
+  const hl = lows.length >= 3 && lows.slice(-3).every((p,i,a) => i===0 || p.p > a[i-1].p);
+  const hh = highs.length >= 3 && highs.slice(-3).every((p,i,a) => i===0 || p.p > a[i-1].p);
+  const ll = lows.length >= 3 && lows.slice(-3).every((p,i,a) => i===0 || p.p < a[i-1].p);
+  const lh = highs.length >= 3 && highs.slice(-3).every((p,i,a) => i===0 || p.p < a[i-1].p);
+  let lo = Infinity, hi = -Infinity; for (let j=L-48;j<=L;j++){ lo = Math.min(lo, s.l[j]); hi = Math.max(hi, s.h[j]); }
+  if (hl && hh && above >= 36 && (s.c[L] - lo) >= 2.5*atr) return 1;
+  if (ll && lh && below >= 36 && (hi - s.c[L]) >= 2.5*atr) return -1;
+  return 0;
 }
 function calcSR(){
   const ref = S.res['60'] || S.res[S.tf] || S.res['D'];
@@ -598,20 +678,66 @@ function calcSR(){
     const R = S.res[f.k]; if (!R) continue;
     used.push(f.label);
     const s = R.S, L = s.t.length-1;
+    // 山・谷（反転した価格）
     for (const p of pivots(s.h, s.l, f.piv)){
       if (Math.abs(p.p - price) > range) continue;
-      cands.push({p:p.p, w:f.w*rec(s.t[p.i]), tf:f.k, kind:p.t===1?'H':'L', i:p.i, t:s.t[p.i], R});
+      cands.push({p:p.p, w:f.w*rec(s.t[p.i]), tf:f.k, kind:p.t===1?'H':'L', i:p.i, t:s.t[p.i]});
     }
+    // お椀の水平線（日足・4時間・1時間のみ）
+    if (f.bowl) for (const b of findBowls(R, f, price, range, tol, now)) cands.push(b);
+    // 一目：基準線・先行スパン2の横ばい
     if (f.k === 'D' || f.k === '240'){
       for (const [arr, nm, mult] of [[R.kij, '基準線', 1.0], [R.spB, '先行スパン2', 1.2]]){
         for (const r of flatRuns(arr, s.t, 9, 400)){
           if (Math.abs(r.p - price) > range) continue;
-          cands.push({p:r.p, w:f.w*mult*Math.min(2, r.len/9)*rec(r.t), tf:f.k, kind:'K', nm, len:r.len, t:r.t, R});
+          cands.push({p:r.p, w:f.w*mult*Math.min(2, r.len/9)*rec(r.t), tf:f.k, kind:'K', nm, len:r.len, t:r.t});
+        }
+      }
+    }
+    // ネックライン候補：直近の極値の手前の押し目（戻り目）
+    if (f.k !== '15'){
+      const P = pivots(s.h, s.l, f.piv).slice(-8);
+      if (P.length >= 4){
+        let hi = null, lo = null;
+        for (const p of P){ if (p.t===1 && (!hi || p.p > hi.p)) hi = p; if (p.t===-1 && (!lo || p.p < lo.p)) lo = p; }
+        const before = (x, t) => { let r = null; for (const p of P) if (p.i < x.i && p.t === t) r = p; return r; };
+        const nk1 = hi ? before(hi, -1) : null;    // 天井の手前の押し目 → 三尊のネック（支持）
+        const nk2 = lo ? before(lo, 1) : null;     // 底の手前の戻り目 → 逆三尊のネック（抵抗）
+        if (nk1 && price > nk1.p && Math.abs(nk1.p - price) <= range) cands.push({p:nk1.p, w:f.w*0.9, tf:f.k, kind:'N', t:s.t[nk1.i], i:nk1.i});
+        if (nk2 && price < nk2.p && Math.abs(nk2.p - price) <= range) cands.push({p:nk2.p, w:f.w*0.9, tf:f.k, kind:'N', t:s.t[nk2.i], i:nk2.i});
+      }
+    }
+    // 半値戻し：直近のはっきりした一波（日足・4時間）
+    if ((f.k === 'D' || f.k === '240') && R.wave){
+      const W = R.wave, legs = W.legs; const big = legs.reduce((a,g) => (!a || Math.abs(g.diff) > Math.abs(a.diff)) ? g : a, null);
+      if (big && Math.abs(big.diff) >= 3*atrOf(s,14)){
+        const half = (big.a.p + big.b.p)/2;
+        if (Math.abs(half - price) <= range) cands.push({p:half, w:f.w*0.6, tf:f.k, kind:'F', t:s.t[big.b.i]});
+      }
+    }
+    // 印象的なローソク足の四本値（4時間足以上、実体が大きい足）
+    if (f.k === 'D' || f.k === '240'){
+      const a14 = atrOf(s, 14);
+      for (let j=Math.max(1, L-30); j<L; j++){
+        const body = Math.abs(s.c[j]-s.o[j]); if (body < 1.3*a14) continue;
+        for (const [v, nm] of [[s.o[j],'始値'],[s.c[j],'終値'],[s.h[j],'高値'],[s.l[j],'安値']]){
+          if (Math.abs(v - price) <= range) cands.push({p:v, w:f.w*0.35*rec(s.t[j]), tf:f.k, kind:'C', nm:(s.c[j]>=s.o[j]?'大陽線':'大陰線')+nm, t:s.t[j]});
         }
       }
     }
   }
-  if (!cands.length) return {levels:[], price, tol, used};
+  // 進行中の日足の始値（陰線にさせまい・陽線にさせまい）
+  let dayOpen = null;
+  if (D){
+    const s = D.S, L = s.t.length-1, ma20 = D.ma[20][L];
+    const bull = s.c[L] >= s.o[L], streak = (L>=2 && (s.c[L-1]>=s.o[L-1]) === bull && (s.c[L-2]>=s.o[L-2]) === bull);
+    const trendOk = Number.isFinite(ma20) && (bull ? s.c[L] > ma20 : s.c[L] < ma20);
+    if (Math.abs(s.o[L] - price) <= range && ((bull && price > s.o[L]) || (!bull && price < s.o[L]))){
+      dayOpen = {p:s.o[L], bull, streak, trendOk};
+      cands.push({p:s.o[L], w:1.0 + (streak?0.6:0) + (trendOk?0.6:0), tf:'D', kind:'O', t:s.t[L]});
+    }
+  }
+  if (!cands.length) return {levels:[], price, tol, used, thrust:0};
   cands.sort((a,b) => a.p - b.p);
 
   // 近い価格をまとめる
@@ -623,17 +749,39 @@ function calcSR(){
     } else cl.push({items:[c], sw:c.w, p:c.p, lo:c.p, hi:c.p});
   }
 
+  // 現在のMA（全時間足）
+  const mas = [];
+  for (const k of ['D','240','60','15','5','1']){
+    const R = S.res[k]; if (!R) continue; const L = R.S.t.length-1;
+    for (const per of MA_P){ const v = R.ma[per][L]; const w = (MA_W[k]||{})[per] || 0; if (Number.isFinite(v) && w) mas.push({k, per, v, w}); }
+  }
+  const thrust = detectThrust();
+
   // 点数化
   const H1 = S.res['60'];
   for (const z of cl){
     const tfs = new Set(z.items.map(x=>x.tf));
     const hasH = z.items.some(x=>x.kind==='H'), hasL = z.items.some(x=>x.kind==='L');
+    const bowls = z.items.filter(x=>x.kind==='B');
     let sc = z.sw;
-    if (hasH && hasL) sc *= 1.35;                                  // 役割の入れ替わり
-    sc *= 1 + 0.25 * (tfs.size - 1);                               // 時間足の重なり
+    if (hasH && hasL) sc *= 1.3;                                   // 役割の入れ替わり
+    sc *= 1 + 0.2 * (tfs.size - 1);                                // 時間足の重なり
     const r100 = Math.abs(z.p - Math.round(z.p/100)*100), r50 = Math.abs(z.p - Math.round(z.p/50)*50);
     z.round = r100 <= tol ? 100 : r50 <= tol ? 50 : 0;
-    if (z.round === 100) sc += 2.5; else if (z.round === 50) sc += 1.2;
+    if (z.round === 100) sc += 2; else if (z.round === 50) sc += 1;
+    // 移動平均線との重なり（近いほど大きく加点。別の時間足のMAが2本以上重なればさらに加点）
+    z.mas = [];
+    let maBonus = 0;
+    for (const m of mas){
+      const d = Math.abs(m.v - z.p); if (d > tol*2) continue;
+      const close = 1 - d/(tol*2);
+      maBonus += m.w * (0.4 + 0.6*close);
+      z.mas.push({...m, d, close});
+    }
+    const maTfs = new Set(z.mas.filter(m => m.per===20 || m.per===210).map(m=>m.k));
+    if (maTfs.size >= 2) maBonus *= 1.35;
+    z.maBonus = maBonus;
+    sc *= 1 + Math.min(1.6, 0.45*maBonus);
     // 最後に反転した後、1時間足の終値でこの価格を何回抜けたか（多いほど効いていない）
     if (H1){
       const last = Math.max(...z.items.map(x=>x.t)), s = H1.S; let cross = 0, side = 0;
@@ -645,10 +793,12 @@ function calcSR(){
       }
       z.cross = cross; sc *= 1 / (1 + 0.18*cross);
     } else z.cross = 0;
+    z.bowl = bowls.length ? bowls.reduce((a,b) => b.w > a.w ? b : a) : null;
+    z.thrustWarn = (thrust === 1 && z.p > price) || (thrust === -1 && z.p < price);
+    if (z.thrustWarn) sc *= 0.9;
     z.score = sc; z.tfs = tfs; z.flip = hasH && hasL;
   }
 
-  // 現在値の上を抵抗、下を支持として、それぞれ点数上位を採用
   const pick = (arr) => arr.sort((a,b)=>b.score-a.score).slice(0, SR_SIDE);
   const above = pick(cl.filter(z => z.p > price + tol*0.25));
   const below = pick(cl.filter(z => z.p < price - tol*0.25));
@@ -656,26 +806,99 @@ function calcSR(){
   const mx = Math.max(...levels.map(z=>z.score), 1e-9);
   const order = [...levels].sort((a,b)=>b.score-a.score);
   order.forEach((z,r) => { z.rank = r+1; z.str = z.score/mx; });
-  // 現在値から近い順に R1,R2… / S1,S2…
   above.sort((a,b)=>a.p-b.p).forEach((z,i)=>z.name='R'+(i+1));
   below.sort((a,b)=>b.p-a.p).forEach((z,i)=>z.name='S'+(i+1));
-  for (const z of levels) z.why = srWhy(z);
-  return {levels, price, tol, used};
+  for (const z of levels){ z.tags = srTags(z); z.why = srWhy(z); }
+  return {levels, price, tol, used, thrust, dayOpen, mas};
+}
+function srTags(z){
+  const t = [];
+  if (z.bowl) t.push({c:'bowl', s:`お椀（${TFLBL[z.bowl.tf]}${z.bowl.first ? '・初回' : ''}）`});
+  if (z.mas.length){
+    const best = [...z.mas].sort((a,b)=>b.w*b.close - a.w*a.close)[0];
+    t.push({c:'ma', s:`MA重なり ${TFLBL[best.k]}${best.per}${z.mas.length>1 ? ` 他${z.mas.length-1}` : ''}`});
+  }
+  if (z.items.some(x=>x.kind==='N')) t.push({c:'neck', s:'ネック候補'});
+  if (z.items.some(x=>x.kind==='O')) t.push({c:'open', s:'本日始値'});
+  if (z.items.some(x=>x.kind==='F')) t.push({c:'half', s:'半値戻し'});
+  if (z.round) t.push({c:'round', s:`$${z.round}`});
+  if (z.thrustWarn) t.push({c:'warn', s:'スラスト警戒'});
+  return t;
 }
 function srWhy(z){
   const parts = [];
+  if (z.bowl){
+    const b = z.bowl;
+    parts.push(`${TFLBL[b.tf]}のお椀：起点から${fmt(b.depth)}（ATR×${b.depthAtr.toFixed(1)}）離れて全戻し${b.first ? '・初回の戻り（最も効きやすい）' : `・${b.retests+1}回目の接触`}`);
+  }
+  for (const m of [...z.mas].sort((a,b)=>a.d-b.d).slice(0,3)) parts.push(`${TFLBL[m.k]}${m.per}MA が ${m.d < z.p*0.0002 ? 'ほぼ同値' : '±'+fmt(m.d)}`);
   for (const f of SR_TF){
     const it = z.items.filter(x=>x.tf===f.k);
     const h = it.filter(x=>x.kind==='H').length, l = it.filter(x=>x.kind==='L').length;
-    const k = it.filter(x=>x.kind==='K');
     if (h) parts.push(`${f.label}高値×${h}`);
     if (l) parts.push(`${f.label}安値×${l}`);
-    for (const nm of new Set(k.map(x=>x.nm))) parts.push(`${f.label}${nm}横ばい`);
+    for (const nm of new Set(it.filter(x=>x.kind==='K').map(x=>x.nm))) parts.push(`${f.label}${nm}横ばい`);
+    if (it.some(x=>x.kind==='N')) parts.push(`${f.label}ネックライン候補`);
+    if (it.some(x=>x.kind==='F')) parts.push(`${f.label}半値戻し`);
+    for (const nm of new Set(it.filter(x=>x.kind==='C').map(x=>x.nm))) parts.push(`${f.label}${nm}`);
   }
+  const o = z.items.find(x=>x.kind==='O');
+  if (o){ const d = S.sr && S.sr.dayOpen; parts.push(`本日の日足始値（${d && d.bull ? '陰線にさせまい' : '陽線にさせまい'}${d && d.streak ? '・3日連続' : ''}）`); }
   if (z.flip) parts.push('役割の入れ替わり');
   if (z.round) parts.push(`$${z.round}の節目`);
   if (z.cross >= 3) parts.push(`その後${z.cross}回抜けている`);
+  if (z.thrustWarn) parts.push('直前にスラスト（小刻みな切り上げ／下げ）があり逆張りは警戒');
   return parts.join('・');
+}
+
+/* ===================== 1分足の反応チェック ===================== */
+// サポレジに触れたときの「反応」：①反発のシンボルになる長い足・ヒゲ ②20MA割れ（抜け）の確定 ③高値安値更新フェイク
+function reactions(){
+  const R = S.res['1'] || S.res['5']; if (!R || !S.sr || !S.sr.levels.length) return null;
+  const s = R.S, L = s.t.length-1, ma = R.ma[20], ma210 = R.ma[210], tol = S.sr.tol;
+  const atr = atrOf(s, 14); if (!Number.isFinite(atr)) return null;
+  const marks = []; const perLevel = new Map();
+  const avgRange = i => { let a = 0, n = 0; for (let j=Math.max(1,i-20); j<i; j++){ a += s.h[j]-s.l[j]; n++; } return n ? a/n : atr; };
+  for (const z of S.sr.levels){
+    const ev = [];
+    for (let i=Math.max(22, L-400); i<=L; i++){
+      const touch = z.side==='res' ? (s.h[i] >= z.p - tol && s.l[i] <= z.p + tol) : (s.l[i] <= z.p + tol && s.h[i] >= z.p - tol);
+      if (!touch) continue;
+      const rng = s.h[i]-s.l[i], ar = avgRange(i);
+      const upW = s.h[i]-Math.max(s.o[i],s.c[i]), dnW = Math.min(s.o[i],s.c[i])-s.l[i];
+      // ① 異様な長さ・長いヒゲ
+      if (rng >= 2.2*ar && (z.side==='res' ? upW >= rng*0.45 || s.c[i] < s.o[i] : dnW >= rng*0.45 || s.c[i] > s.o[i]))
+        ev.push({i, t:s.t[i], k:'sym', txt:'反発シンボル（直近にない長さの足・ヒゲ）'});
+      // ③ 更新フェイク：一度抜けて終値で戻る
+      if (z.side==='res' ? (s.h[i] > z.p + tol*0.3 && s.c[i] < z.p) : (s.l[i] < z.p - tol*0.3 && s.c[i] > z.p))
+        ev.push({i, t:s.t[i], k:'fake', txt:'更新フェイク（抜けて終値で戻る）'});
+      // ② 接触後5本以内の20MA割れ（抜け）確定
+      for (let j=i+1; j<=Math.min(L, i+5); j++){
+        if (!Number.isFinite(ma[j])) break;
+        if (z.side==='res' && s.c[j] < ma[j] && s.c[j] < s.o[j] && s.c[j-1] >= ma[j-1]){
+          ev.push({i:j, t:s.t[j], k:'ma', txt: Math.max(s.o[j],s.c[j]) < ma[j] ? '20MA割れ確定（実体まるごと）' : '20MA割れ確定（終値）', strong: Math.max(s.o[j],s.c[j]) < ma[j]}); break;
+        }
+        if (z.side==='sup' && s.c[j] > ma[j] && s.c[j] > s.o[j] && s.c[j-1] <= ma[j-1]){
+          ev.push({i:j, t:s.t[j], k:'ma', txt: Math.min(s.o[j],s.c[j]) > ma[j] ? '20MA抜け確定（実体まるごと）' : '20MA抜け確定（終値）', strong: Math.min(s.o[j],s.c[j]) > ma[j]}); break;
+        }
+      }
+    }
+    // 重複を間引き
+    const uniq = []; for (const e of ev) if (!uniq.some(u => u.k===e.k && Math.abs(u.i-e.i) <= 2)) uniq.push(e);
+    perLevel.set(z, uniq); marks.push(...uniq.map(e => ({...e, side:z.side, name:z.name})));
+  }
+  // いまの状態：最寄りの水平線、20MAとの乖離、サンドイッチ
+  const near = [...S.sr.levels].sort((a,b)=>Math.abs(a.p-s.c[L]) - Math.abs(b.p-s.c[L]))[0];
+  const dist = Math.abs(near.p - s.c[L]);
+  const dev = Number.isFinite(ma[L]) ? (s.c[L]-ma[L])/atr : 0;
+  let pattern = '';
+  if (dist <= tol*1.5 && Math.abs(dev) >= 2.5) pattern = `型①：20MAから大きく乖離（ATR×${Math.abs(dev).toFixed(1)}）して接触。反発シンボルが出れば 20MA（${fmt(ma[L])}）までの戻りを狙う型`;
+  else {
+    let sand = 0; const lim = Math.min(near.p, ma[L]), top = Math.max(near.p, ma[L]);
+    for (let j=L; j>=Math.max(0,L-15); j--){ if (s.c[j] >= lim - tol*0.5 && s.c[j] <= top + tol*0.5) sand++; else break; }
+    if (sand >= 6 && Math.abs(near.p - ma[L]) <= 4*atr) pattern = `型②：水平線 ${near.name} と20MAにサンドイッチ（${sand}本）。20MAを実体で抜けた側に動きやすい`;
+  }
+  return {marks, perLevel, near, dist, dev, pattern, ma20:ma[L], ma210:ma210[L], tf: S.res['1'] ? '1分' : '5分'};
 }
 
 /* ===================== チャート描画 ===================== */
@@ -745,7 +968,8 @@ function draw(){
     poly(ctx, i => R.spB[i-OFF], Math.max(i0,OFF), Math.min(i1,L+OFF), C.kumoDnL, 1);
   }
 
-  // 支持線・抵抗線（強いものほど濃く・太く）
+  // 支持線・抵抗線（強いものほど濃く・太く。お椀はその起点から右へ本線、起点より左は薄く）
+  const idxAt = t => { let lo2 = 0, hi2 = L; while (lo2 < hi2){ const md = (lo2+hi2)>>1; if (R.S.t[md] < t) lo2 = md+1; else hi2 = md; } return lo2; };
   if (S.layers.sr && S.sr && S.sr.levels.length){
     const lv = [...S.sr.levels].sort((a,b)=>a.str-b.str);      // 弱い順に描き、強い線を上に重ねる
     for (const z of lv){
@@ -755,10 +979,31 @@ function draw(){
       ctx.globalAlpha = a*0.13; ctx.fillStyle = col;
       const bh = Math.max(2, Math.abs(Y(z.p - S.sr.tol/2) - Y(z.p + S.sr.tol/2)));
       ctx.fillRect(0, y-bh/2, pw, bh);
-      ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 0.8 + 2.4*z.str;
-      ctx.setLineDash(z.str > 0.55 ? [] : [8,5]);
-      ctx.beginPath(); ctx.moveTo(0, Math.round(y)+.5); ctx.lineTo(pw, Math.round(y)+.5); ctx.stroke();
+      const lw = 0.8 + 2.4*z.str;
+      let x0 = 0;
+      if (z.bowl){
+        x0 = clamp(X(idxAt(z.bowl.t)), 0, pw);
+        if (x0 > 0){
+          ctx.globalAlpha = a*0.35; ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, lw*0.6); ctx.setLineDash([3,5]);
+          ctx.beginPath(); ctx.moveTo(0, Math.round(y)+.5); ctx.lineTo(x0, Math.round(y)+.5); ctx.stroke();
+          // お椀の起点
+          ctx.setLineDash([]); ctx.globalAlpha = a; ctx.fillStyle = C.bg;
+          ctx.beginPath(); ctx.arc(x0, y, 4.5, 0, Math.PI*2); ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = lw;
+      ctx.setLineDash(z.str > 0.55 || z.bowl ? [] : [8,5]);
+      ctx.beginPath(); ctx.moveTo(x0, Math.round(y)+.5); ctx.lineTo(pw, Math.round(y)+.5); ctx.stroke();
+      if (z.bowl){   // お椀は二重線で目立たせる
+        ctx.globalAlpha = a*0.45; ctx.lineWidth = lw + 4;
+        ctx.beginPath(); ctx.moveTo(x0, Math.round(y)+.5); ctx.lineTo(pw, Math.round(y)+.5); ctx.stroke();
+      }
       ctx.setLineDash([]);
+      // MA重なり：右端に小さな菱形
+      if (z.mas.length){
+        ctx.globalAlpha = Math.min(1, a + 0.2); ctx.fillStyle = C.gold;
+        ctx.beginPath(); ctx.moveTo(pw-10, y-6); ctx.lineTo(pw-4, y); ctx.lineTo(pw-10, y+6); ctx.lineTo(pw-16, y); ctx.closePath(); ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -865,11 +1110,24 @@ function draw(){
       if (placed.some(py => Math.abs(py-y) < 15)) continue;
       placed.push(y);
       const col = z.side === 'res' ? C.down : C.up;
-      const txt = `${z.name} ${fmt(z.p)}  強さ${z.rank}位`;
+      const extra = (z.bowl ? ' お椀' + TFLBL[z.bowl.tf] : '') + (z.mas.length ? ' ＋MA' : '') + (z.thrustWarn ? ' ⚠' : '');
+      const txt = `${z.name} ${fmt(z.p)}  強さ${z.rank}位${extra}`;
       const tw = ctx.measureText(txt).width + 10;
       ctx.globalAlpha = 0.35 + 0.65*z.str;
       ctx.fillStyle = col; ctx.fillRect(6, y-8, tw, 16);
       ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillText(txt, 11, y+0.5);
+    }
+  }
+  // 1分足・5分足では「反応」の印を描く（★長い足/ヒゲ ◆20MA確定 ✕更新フェイク）
+  if (S.layers.sr && S.rx && (S.tf === '1' || S.tf === '5')){
+    ctx.font = `bold 11px ${C.num}`; ctx.textAlign = 'center';
+    for (const e of S.rx.marks){
+      const i = idxAt(e.t); if (i < i0 || i > i1) continue;
+      const x = X(i); const up = e.side === 'res';
+      const y = up ? Y(R.S.h[i]) - 6 : Y(R.S.l[i]) + 6;
+      ctx.textBaseline = up ? 'bottom' : 'top';
+      ctx.fillStyle = e.k === 'ma' ? (up ? C.down : C.up) : e.k === 'sym' ? C.gold : C.taito;
+      ctx.fillText(e.k === 'ma' ? '◆' : e.k === 'sym' ? '★' : '✕', x, y);
     }
   }
 
@@ -955,17 +1213,30 @@ function renderSR(){
   if (!Z.levels.length){ el.innerHTML = '<span class="mu">現在値の近くに目立つ反転価格が見つかりません</span>'; return; }
   const res = Z.levels.filter(z=>z.side==='res').sort((a,b)=>b.p-a.p);
   const sup = Z.levels.filter(z=>z.side==='sup').sort((a,b)=>b.p-a.p);
+  const rx = S.rx;
   const row = z => {
     const d = z.p - Z.price;
-    return `<div class="sr ${z.side}"><span class="tag">${z.name}</span><span class="px">${fmt(z.p)}</span>
+    const tags = z.tags.map(t => `<span class="tg2 ${t.c}">${t.s}</span>`).join('');
+    const ev = rx && rx.perLevel.get(z) || [];
+    const last = ev.length ? ev[ev.length-1] : null;
+    const rxTxt = last ? `<div class="rxline">直近の反応（${rx.tf}）：${last.txt} <span class="mu">${fmtT(last.t, 1, true)}</span></div>` : '';
+    return `<div class="sr ${z.side}${z.bowl ? ' isbowl' : ''}"><span class="tag">${z.name}</span><span class="px">${fmt(z.p)}</span>
       <span class="meter" title="強さ ${Math.round(z.str*100)}"><b style="width:${Math.max(6, Math.round(z.str*100))}%;opacity:${(0.35+0.65*z.str).toFixed(2)}"></b></span>
-      <span class="dist">${d>0?'+':''}${fmt(d)}</span><span class="why">強さ${z.rank}位：${z.why}</span></div>`;
+      <span class="dist">${d>0?'+':''}${fmt(d)}</span>
+      <span class="why"><span class="rank">強さ${z.rank}位</span>${tags}<div>${z.why}</div>${rxTxt}</span></div>`;
   };
   const missing = SR_TF.filter(f => !S.res[f.k]).map(f=>f.label);
-  el.innerHTML = `<div class="srlist">${res.map(row).join('')}
+  const thrustTxt = Z.thrust === 1 ? '<div class="warnbox">直前にスラスト（小刻みに切り上げて突っ込む動き）あり。上の水平線での売りは見送るか、より深いお椀まで待つ場面</div>'
+                  : Z.thrust === -1 ? '<div class="warnbox">直前に下向きのスラストあり。下の水平線での買いは見送るか、より深いお椀まで待つ場面</div>' : '';
+  let nowTxt = '';
+  if (rx){
+    const d = rx.dist, near = rx.near;
+    nowTxt = `<div class="nowbox"><b>${rx.tf}足の状態</b>：最寄り ${near.name} ${fmt(near.p)} まで ${fmt(d)}（${d <= Z.tol*1.5 ? '接触中' : d <= Z.tol*4 ? '接近中' : '離れている'}）・20MA乖離 ATR×${Math.abs(rx.dev).toFixed(1)}${rx.pattern ? `<div>${rx.pattern}</div>` : ''}</div>`;
+  }
+  el.innerHTML = thrustTxt + `<div class="srlist">${res.map(row).join('')}
     <div class="sr now"><span class="tag mu">現在</span><span class="px">${fmt(Z.price)}</span><span></span><span></span></div>
-    ${sup.map(row).join('')}</div>
-    <p class="mu" style="font-size:.72rem;margin:8px 0 0">線が濃く太いほど効きやすい価格です。同じ価格とみなす幅は ±${fmt(Z.tol)}（日足ATRの約12%）。${missing.length ? `${missing.join('・')}は取得待ちのため未反映。` : '日足・4時間・1時間・15分の4つの時間足から算出。'}</p>`;
+    ${sup.map(row).join('')}</div>` + nowTxt +
+    `<p class="mu" style="font-size:.72rem;margin:8px 0 0">二重線＝お椀の水平線（○がその起点）、右端の◆＝移動平均線が重なっている。線が濃く太いほど効きやすい価格。同じ価格とみなす幅は ±${fmt(Z.tol)}（日足ATRの約12%）。${missing.length ? `${missing.join('・')}は取得待ちのため未反映。` : ''}</p>`;
 }
 const chip = (v, t) => `<span class="chip ${cls(v)}">${t}</span>`;
 function renderTop(){
@@ -1119,7 +1390,7 @@ function renderWave(){
     `<table class="tg2"><thead><tr><th>期間</th><th>半値</th><th>位置</th></tr></thead><tbody>${lv}</tbody></table>`;
 }
 function renderAll(){
-  S.sr = calcSR(); renderFeed(); renderTF(); renderTop(); renderMTF(); renderSR(); renderGroups(); renderWave(); requestDraw();
+  S.sr = calcSR(); S.rx = reactions(); renderFeed(); renderTF(); renderTop(); renderMTF(); renderSR(); renderGroups(); renderWave(); requestDraw();
 }
 
 /* ===================== 操作 ===================== */
