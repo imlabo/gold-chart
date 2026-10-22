@@ -282,7 +282,7 @@ details.help p{margin:6px 0}
             <button type="button" class="btn sm" id="wvReset">自動の3点に戻す</button>
           </span>
         </div>
-        <p class="mu wvhint" id="wvHint" hidden>チャート上の A・B・C の丸をドラッグして動かせます（高値・安値に吸着）。「◯を置く」を押してからチャートをクリックしても置けます。銘柄・時間足ごとに記憶します。</p>
+        <p class="mu wvhint" id="wvHint">チャート上の A・B・C の丸をドラッグして動かせます（高値・安値に吸着。つかむと手動に切り替わります）。「◯を置く」を押してからチャートをクリックしても置けます。銘柄・時間足ごとに記憶します。</p>
         <div id="wave"></div>
       </section>
 
@@ -1010,6 +1010,7 @@ let raf = 0;
 const requestDraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
 let geom = null;
 let handles = [];
+let hoverHandle = null;
 
 function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
 
@@ -1185,30 +1186,31 @@ function draw(){
     ctx.beginPath(); P.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
     ctx.setLineDash([]); ctx.globalAlpha = 1;
     ctx.font = `10px ${C.num}`; ctx.textAlign = 'center';
-    const names = (W2 && !manual) ? new Map([[W2.A,'A'],[W2.B,'B'],[W2.C,'C']]) : new Map();
+    const abc = W2 ? new Set([W2.A, W2.B, W2.C]) : new Set();
     P.forEach(p => {
-      const x=X(p.i); if (x<-20||x>pw+20) return;
-      const nm = names.get(p);
-      ctx.fillStyle = nm ? C.ink : C.zig;
+      const x=X(p.i); if (x<-20||x>pw+20 || abc.has(p)) return;
+      ctx.fillStyle = C.zig;
       ctx.textBaseline = p.t===1 ? 'bottom' : 'top';
-      const y = Y(p.p) + (p.t===1 ? -4 : 4);
-      ctx.fillText(nm ? `${nm} ${fmt(p.p)}` : fmt(p.p), x, y);
+      ctx.fillText(fmt(p.p), x, Y(p.p) + (p.t===1 ? -4 : 4));
     });
-    // 手動のA・B・C：太い折れ線と、つかめる丸いハンドル
-    if (manual){
+    // A・B・C：つかんで動かせる丸いハンドル（自動モードでもつかめる。つかむと手動に切り替わる）
+    if (W2){
       const pts = [W2.A, W2.B, W2.C];
-      ctx.strokeStyle = C.gold; ctx.lineWidth = 2.4;
-      ctx.beginPath(); pts.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+      const col = manual ? C.gold : C.ink;
+      if (manual){
+        ctx.strokeStyle = C.gold; ctx.lineWidth = 2.4;
+        ctx.beginPath(); pts.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+      }
       ctx.font = `bold 11px ${C.num}`;
       pts.forEach((p,j) => {
         const x = X(p.i), y = Y(p.p);
         handles.push({j, x, y});
-        const active = S.dragPt === j;
-        ctx.fillStyle = C.bg; ctx.strokeStyle = C.gold; ctx.lineWidth = active ? 3 : 2;
-        ctx.beginPath(); ctx.arc(x, y, active ? 9 : 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = C.gold; ctx.textBaseline = 'middle'; ctx.fillText('ABC'[j], x, y+0.5);
+        const active = S.dragPt === j, hot = !active && hoverHandle === j;
+        ctx.fillStyle = C.bg; ctx.strokeStyle = col; ctx.lineWidth = active ? 3 : 2;
+        ctx.beginPath(); ctx.arc(x, y, active ? 10 : hot ? 9 : 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ABC'[j], x, y+0.5);
         ctx.fillStyle = C.ink; ctx.textBaseline = p.t===1 ? 'bottom' : 'top';
-        ctx.fillText(fmt(p.p), x, y + (p.t===1 ? -11 : 11));
+        ctx.fillText(fmt(p.p), x, y + (p.t===1 ? -12 : 12));
       });
     }
   }
@@ -1486,7 +1488,7 @@ function renderWave(){
   const R = S.res[S.tf], t = TF[S.tf].label;
   const man = S.waveMode === 'manual';
   $('#wvAuto').setAttribute('aria-pressed', String(!man)); $('#wvMan').setAttribute('aria-pressed', String(man));
-  $('#wvTools').hidden = !man; $('#wvHint').hidden = !man;
+  $('#wvTools').hidden = !man;
   document.querySelectorAll('[data-place]').forEach(b => b.setAttribute('aria-pressed', String(S.placing === +b.dataset.place)));
   $('#wTitle').textContent = `波動と値幅観測（${t}）`;
   $('#tTitle').textContent = `時間論（${t}）`;
@@ -1583,14 +1585,17 @@ function priceAt(y){ return geom.lo + (geom.ph - y)/geom.ph*(geom.hi - geom.lo);
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, {x:e.offsetX, y:e.offsetY});
   const v = S.view[S.tf]; if (!v) return;
-  if (ptrs.size === 1 && geom && S.waveMode === 'manual'){
-    if (S.placing !== null){
+  if (ptrs.size === 1 && geom){
+    if (S.waveMode === 'manual' && S.placing !== null){
       setManualPoint(S.placing, barAt(e.offsetX), priceAt(e.offsetY));
       S.placing = null; drag = null; renderWave(); requestDraw(); return;
     }
-    const r = e.pointerType === 'touch' ? 18 : 12;
+    const r = e.pointerType === 'touch' ? 22 : 14;
     const h = handles.find(h => Math.hypot(h.x - e.offsetX, h.y - e.offsetY) <= r);
-    if (h){ S.dragPt = h.j; drag = null; requestDraw(); return; }
+    if (h){
+      if (S.waveMode !== 'manual'){ S.waveMode = 'manual'; seedManual(); recomputeWave(S.tf); renderWave(); }
+      S.dragPt = h.j; drag = null; requestDraw(); return;
+    }
   }
   if (ptrs.size === 1) drag = {x:e.offsetX, right:v.right};
   if (ptrs.size === 2){ drag = null; pinch = {d:dist(), count:v.count}; }
@@ -1600,7 +1605,7 @@ cv.addEventListener('pointermove', e => {
   const v = S.view[S.tf], R = S.res[S.tf]; if (!v || !R || !geom) return;
   if (S.dragPt !== null && ptrs.size === 1){
     setManualPoint(S.dragPt, barAt(e.offsetX), priceAt(e.offsetY));
-    S.hover = null; requestDraw(); return;
+    S.hover = null; cv.style.cursor = 'grabbing'; requestDraw(); return;
   }
   if (pinch && ptrs.size === 2){
     const d = dist(); if (d > 10){ const L = R.S.t.length-1; v.count = clamp(pinch.count * pinch.d / d, 20, Math.max(40, Math.min(2000, L+200))); }
@@ -1608,9 +1613,14 @@ cv.addEventListener('pointermove', e => {
     v.right = clamp(drag.right - (e.offsetX - drag.x)/geom.bw, 10, R.S.t.length-1+180);
   }
   S.hover = (e.pointerType === 'mouse' || drag) ? {x:e.offsetX, y:e.offsetY} : S.hover;
+  if (e.pointerType === 'mouse' && !drag){
+    const h = handles.find(h => Math.hypot(h.x - e.offsetX, h.y - e.offsetY) <= 14);
+    hoverHandle = h ? h.j : null;
+    cv.style.cursor = h ? 'grab' : S.placing !== null ? 'cell' : 'crosshair';
+  }
   requestDraw();
 });
-const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null; if (S.dragPt !== null){ S.dragPt = null; renderWave(); renderAllSR(); requestDraw(); } };
+const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null; if (S.dragPt !== null){ S.dragPt = null; cv.style.cursor = 'grab'; renderWave(); renderAllSR(); requestDraw(); } };
 function renderAllSR(){ S.sr = calcSR(); S.rx = reactions(); renderSR(); }
 cv.addEventListener('pointerup', endPtr);
 cv.addEventListener('pointercancel', endPtr);
