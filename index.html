@@ -231,7 +231,7 @@ details.help p{margin:6px 0}
       <div class="readout" id="readout"></div>
       <canvas id="chart"></canvas>
       <div class="chartfoot">
-        <span>ドラッグで移動・ホイール／ピンチで拡大縮小。点線の縦線は時間論の基本数値、赤の破線は対等数値。</span>
+        <span>ドラッグで移動・ホイール／ピンチで拡大縮小。点線の縦線は時間論の基本数値、赤の破線は対等数値（AB=CD・AC=CD・AB=BD、下部のブラケットが当てた区間）。</span>
         <span class="zoom">
           <button type="button" id="zIn" aria-label="拡大">＋</button>
           <button type="button" id="zOut" aria-label="縮小">−</button>
@@ -467,7 +467,14 @@ function waveInfo(R, pts){
     const a=seq[j-1], b=seq[j]; const bars=b.i-a.i;
     legs.push({a,b,bars,diff:b.p-a.p,hit:KIHON.find(k=>Math.abs(k-bars)<=1)});
   }
-  return {A,B,C,up,status,note,dir,tg,elapsed,nextK,taAB:C.i+(B.i-A.i),taBC:C.i+(C.i-B.i),abBars:B.i-A.i,bcBars:C.i-B.i,legs,L,manual};
+  // 対等数値の三つの型（時間）：AB=CD（平行）、AC=CD（A→C全体をCから）、AB=BD（Bを中心に前後が対等）
+  const abBars = B.i-A.i, bcBars = C.i-B.i, acBars = C.i-A.i;
+  const taito = [
+    {key:'ABCD', name:'AB=CD', d:C.i + abBars, bars:abBars, from:'C', desc:`A→B（${abBars}本）を C から当てる`},
+    {key:'ACCD', name:'AC=CD', d:C.i + acBars, bars:acBars, from:'C', desc:`A→C（${acBars}本）を C から当てる`},
+    {key:'ABBD', name:'AB=BD', d:B.i + abBars, bars:abBars, from:'B', desc:`A→B（${abBars}本）を B から当てる（Bが中心）`}
+  ];
+  return {A,B,C,up,status,note,dir,tg,elapsed,nextK,taAB:C.i+abBars,taBC:C.i+bcBars,abBars,bcBars,acBars,taito,legs,L,manual};
 }
 
 /* ===================== 波動 A・B・C の手動指定 ===================== */
@@ -1139,11 +1146,29 @@ function draw(){
       }
     }
     ctx.globalAlpha = 1;
-    for (const [x0, nm] of [[W2.taAB, `対等 ${W2.abBars}`], [W2.taBC, `対等 ${W2.bcBars}`]]){
-      const x = X(x0); if (x < 0 || x > pw) continue;
-      ctx.strokeStyle = C.taito; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = C.taito; ctx.textBaseline = 'bottom'; ctx.fillText(nm, x, ph-4); ctx.textBaseline = 'top';
-    }
+    // 対等数値の三つの型：縦線（D）と、どの区間を当てたかを示す下部のブラケット
+    const yb = ph - 8;
+    const dashes = {ABCD:[6,4], ACCD:[10,4], ABBD:[2,3]};
+    W2.taito.forEach((t, n) => {
+      const x = X(t.d);
+      const xs = X(t.from === 'C' ? W2.C.i : W2.B.i), xa = X(W2.A.i), xbb = X(W2.B.i), xc = X(W2.C.i);
+      const yy = yb - n*7;
+      ctx.strokeStyle = C.taito; ctx.lineWidth = 1;
+      if (x >= 0 && x <= pw){
+        ctx.setLineDash(dashes[t.key]); ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = C.taito; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+        ctx.fillText(`${t.name} ${t.bars}`, x, yy - 3);
+        ctx.textBaseline = 'top';
+      }
+      // 元の区間（A→B または A→C）と、当てた区間（起点→D）を同じ高さに細い線で示す
+      const seg = (x1, x2) => { if (x2 < 0 || x1 > pw) return; ctx.beginPath(); ctx.moveTo(clamp(x1,0,pw), yy+.5); ctx.lineTo(clamp(x2,0,pw), yy+.5); ctx.stroke();
+        for (const xx of [x1, x2]) if (xx >= 0 && xx <= pw){ ctx.beginPath(); ctx.moveTo(Math.round(xx)+.5, yy-3); ctx.lineTo(Math.round(xx)+.5, yy+3); ctx.stroke(); } };
+      ctx.globalAlpha = 0.55; ctx.setLineDash([]);
+      seg(xa, t.key === 'ACCD' ? xc : xbb);
+      ctx.globalAlpha = 0.95; ctx.setLineDash(dashes[t.key]);
+      seg(xs, x);
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    });
   }
 
   // 移動平均
@@ -1530,7 +1555,7 @@ function renderWave(){
       `<dl class="kv"><dt>起点</dt><dd>直近の${W.up?'谷':'山'} C（${fmtT(R.S.t[W.C.i], m, true)}）</dd>` +
       `<dt>経過</dt><dd class="num"><b>${W.elapsed}本</b>${KIHON.includes(W.elapsed)?' <span class="hit">基本数値に一致</span>':''}</dd>` +
       `<dt>次の基本数値</dt><dd>${nextList || '172本を超えています'}</dd>` +
-      `<dt>対等数値</dt><dd>A→B ${W.abBars}本を当てると C から${W.abBars}本目（${rel(W.taAB-L)}）<br>B→C ${W.bcBars}本を当てると C から${W.bcBars}本目（${rel(W.taBC-L)}）</dd></dl>` +
+      `<dt>対等数値</dt><dd>${W.taito.map(t => `<b>${t.name}</b>：${t.desc} → D は ${t.from} から${t.bars}本目（${rel(t.d-L)}${t.d <= L ? '' : '・' + fmtT(R.S.t[L] + (t.d-L)*m*60000, m, true)}）`).join('<br>')}</dd></dl>` +
       `<table class="tg2"><thead><tr><th>直近の波</th><th>日柄</th><th>値幅</th></tr></thead><tbody>${legs}</tbody></table>`;
   }
   const lv = LEVELS.map(p => {
