@@ -145,6 +145,11 @@ dl.kv dt{color:var(--mute);white-space:nowrap}
 dl.kv dd{margin:0;min-width:0}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 .wstat{font-weight:700;font-size:.92rem;margin-bottom:6px}
+.wctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.seg.sm button{padding:4px 9px;font-size:.76rem;min-width:0}
+.btn.sm{padding:4px 9px;font-size:.76rem}
+.btn.sm[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#fff}
+.wvhint{font-size:.72rem;margin:0 0 6px;line-height:1.5}
 table.tg2{width:100%;border-collapse:collapse;font-size:.76rem;font-variant-numeric:tabular-nums;margin-top:8px}
 table.tg2 td,table.tg2 th{padding:4px 4px;border-bottom:1px solid var(--grid);text-align:right}
 table.tg2 th{color:var(--mute);font-weight:700;text-align:right}
@@ -265,6 +270,19 @@ details.help p{margin:6px 0}
 
       <section class="card">
         <h2 id="wTitle">波動と値幅観測</h2>
+        <div class="wctl">
+          <span class="seg sm" role="group" aria-label="A・B・Cの決め方">
+            <button type="button" id="wvAuto" aria-pressed="true">自動</button>
+            <button type="button" id="wvMan" aria-pressed="false">手動</button>
+          </span>
+          <span id="wvTools" hidden>
+            <button type="button" class="btn sm" data-place="0">Aを置く</button>
+            <button type="button" class="btn sm" data-place="1">Bを置く</button>
+            <button type="button" class="btn sm" data-place="2">Cを置く</button>
+            <button type="button" class="btn sm" id="wvReset">自動の3点に戻す</button>
+          </span>
+        </div>
+        <p class="mu wvhint" id="wvHint" hidden>チャート上の A・B・C の丸をドラッグして動かせます（高値・安値に吸着）。「◯を置く」を押してからチャートをクリックしても置けます。銘柄・時間足ごとに記憶します。</p>
         <div id="wave"></div>
       </section>
 
@@ -319,7 +337,7 @@ const S = {
   sym:'gold', tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
   layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null, rx:null,
   piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
-  off3:0, off9:0, hover:null
+  off3:0, off9:0, hover:null, waveMode:'auto', manual:{}, placing:null, dragPt:null
 };
 
 /* ===================== ユーティリティ ===================== */
@@ -421,10 +439,11 @@ function pivots(h, l, k){
   }
   return P;
 }
-function waveInfo(R){
+function waveInfo(R, pts){
   const P = R.piv, L = R.S.t.length-1, c = R.S.c[L];
-  if (P.length < 3) return null;
-  const A=P[P.length-3], B=P[P.length-2], C=P[P.length-1];
+  const manual = Array.isArray(pts) && pts.length === 3;
+  if (!manual && P.length < 3) return null;
+  const [A, B, C] = manual ? pts : [P[P.length-3], P[P.length-2], P[P.length-1]];
   const up = C.t === -1;
   let status, note, dir;
   if (up){
@@ -442,12 +461,57 @@ function waveInfo(R){
   const elapsed = L - C.i;
   const nextK = KIHON.find(k => k > elapsed);
   const legs = [];
-  for (let j=Math.max(1,P.length-4); j<P.length; j++){
-    const a=P[j-1], b=P[j]; const bars=b.i-a.i;
+  const seq = manual ? [A, B, C] : P.slice(-5);
+  for (let j=1; j<seq.length; j++){
+    const a=seq[j-1], b=seq[j]; const bars=b.i-a.i;
     legs.push({a,b,bars,diff:b.p-a.p,hit:KIHON.find(k=>Math.abs(k-bars)<=1)});
   }
-  return {A,B,C,up,status,note,dir,tg,elapsed,nextK,taAB:C.i+(B.i-A.i),taBC:C.i+(C.i-B.i),abBars:B.i-A.i,bcBars:C.i-B.i,legs,L};
+  return {A,B,C,up,status,note,dir,tg,elapsed,nextK,taAB:C.i+(B.i-A.i),taBC:C.i+(C.i-B.i),abBars:B.i-A.i,bcBars:C.i-B.i,legs,L,manual};
 }
+
+/* ===================== 波動 A・B・C の手動指定 ===================== */
+// S.manual[銘柄][時間足] = [{t,p,t型},{...},{...}]（時刻で保持するので、データ更新後も同じ足に乗る）
+function manualKey(){ return S.sym + '/' + S.tf; }
+function idxOfTime(R, t){ const T = R.S.t; let lo = 0, hi = T.length-1; while (lo < hi){ const m = (lo+hi)>>1; if (T[m] < t) lo = m+1; else hi = m; } return (lo > 0 && Math.abs(T[lo-1]-t) < Math.abs(T[lo]-t)) ? lo-1 : lo; }
+function manualPts(k, R){
+  const m = S.manual[S.sym + '/' + k]; if (!m || m.length !== 3) return null;
+  const pts = m.map(q => { const i = clamp(idxOfTime(R, q.t), 0, R.S.t.length-1); return {i, t:q.ty, p: q.ty === 1 ? R.S.h[i] : R.S.l[i], tm:R.S.t[i]}; });
+  // 同じ足に2点が重なったら無効
+  if (pts[0].i >= pts[1].i || pts[1].i >= pts[2].i) return null;
+  return pts;
+}
+function recomputeWave(k){
+  const R = S.res[k]; if (!R) return;
+  const pts = S.waveMode === 'manual' ? manualPts(k, R) : null;
+  R.wave = waveInfo(R, pts);
+}
+function seedManual(){
+  // 手動モードに入ったとき、点が無ければ自動判定の3点をコピーしてそこから動かせるようにする
+  const R = S.res[S.tf]; if (!R) return false;
+  const key = manualKey();
+  if (S.manual[key] && manualPts(S.tf, R)) return true;
+  const P = R.piv; if (P.length < 3) return false;
+  S.manual[key] = P.slice(-3).map(p => ({t:R.S.t[p.i], ty:p.t}));
+  return true;
+}
+function setManualPoint(which, i, price){
+  // which: 0=A 1=B 2=C。i の足の高値／安値のうち、ポインターに近い方へ吸着（A・Cは同型、Bは逆型）
+  const R = S.res[S.tf]; if (!R) return;
+  const key = manualKey(); const m = S.manual[key] || (S.manual[key] = []);
+  i = clamp(i, 0, R.S.t.length-1);
+  const nearer = Math.abs(R.S.h[i]-price) <= Math.abs(R.S.l[i]-price) ? 1 : -1;
+  let ty = nearer;
+  if (which === 2 && m[0]) ty = m[0].ty;
+  if (which === 0 && m[2]) ty = m[2].ty;
+  if (which === 1 && (m[0] || m[2])) ty = -(m[0] ? m[0].ty : m[2].ty);
+  m[which] = {t:R.S.t[i], ty};
+  if (which === 0 && m[1] && m[1].ty === ty) m[1].ty = -ty;
+  if (which === 1){ if (m[0]) m[0].ty = -ty; if (m[2]) m[2].ty = -ty; }
+  if (which === 2 && m[0] && m[0].ty !== ty) m[0].ty = ty;
+  recomputeWave(S.tf); savePrefs();
+}
+function clearManual(){ delete S.manual[manualKey()]; recomputeWave(S.tf); savePrefs(); }
+
 
 /* ===================== データ取得（無料API） ===================== */
 // Binance：登録不要。PAXG（金1トロイオンス裏付けのトークン）の値動きは金スポットとほぼ同じ。
@@ -538,6 +602,7 @@ function fetchTF(k){
     const keep = (old && v) ? (old.S.t.length-1) - v.right : null;   // 右端からの位置を保つ
     S.series[k] = s; S.fetched[k] = Date.now();
     S.res[k] = calc(s, S.piv[k]);
+    recomputeWave(k);
     const L = s.t.length-1;
     if (keep === null) resetView(k, true); else v.right = clamp(L - keep, 10, L + 180);
   })();
@@ -588,7 +653,7 @@ function switchSymbol(sym){
   switchSource(c.srcs.includes(S.src) ? S.src : c.srcs[0]);
 }
 function savePrefs(){
-  try{ localStorage.setItem(PREFS, JSON.stringify({sym:S.sym, src:S.src, key:S.key, tf:S.tf, piv:S.piv})); } catch(e){}
+  try{ localStorage.setItem(PREFS, JSON.stringify({sym:S.sym, src:S.src, key:S.key, tf:S.tf, piv:S.piv, waveMode:S.waveMode, manual:S.manual})); } catch(e){}
 }
 function loadPrefs(){
   try{
@@ -598,6 +663,8 @@ function loadPrefs(){
     if (typeof j.key === 'string') S.key = j.key;
     if (TF[j.tf]) S.tf = j.tf;
     if (j.piv) for (const k in j.piv) if (TF[k] && Number.isFinite(+j.piv[k])) S.piv[k] = clamp(+j.piv[k], 2, 30);
+    if (j.waveMode === 'manual') S.waveMode = 'manual';
+    if (j.manual && typeof j.manual === 'object') S.manual = j.manual;
   } catch(e){}
 }
 
@@ -942,6 +1009,7 @@ const cv = $('#chart');
 let raf = 0;
 const requestDraw = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
 let geom = null;
+let handles = [];
 
 function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
 
@@ -1108,12 +1176,16 @@ function draw(){
   }
 
   // 波動（ジグザグ）
+  handles = [];
   if (S.layers.wave && R.piv.length){
     const P = R.piv.slice(-16);
-    ctx.strokeStyle = C.zig; ctx.lineWidth = 1.6; ctx.setLineDash([]);
+    const manual = W2 && W2.manual;
+    ctx.strokeStyle = C.zig; ctx.lineWidth = manual ? 1 : 1.6; ctx.setLineDash(manual ? [3,4] : []);
+    ctx.globalAlpha = manual ? 0.5 : 1;
     ctx.beginPath(); P.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
     ctx.font = `10px ${C.num}`; ctx.textAlign = 'center';
-    const names = W2 ? new Map([[W2.A,'A'],[W2.B,'B'],[W2.C,'C']]) : new Map();
+    const names = (W2 && !manual) ? new Map([[W2.A,'A'],[W2.B,'B'],[W2.C,'C']]) : new Map();
     P.forEach(p => {
       const x=X(p.i); if (x<-20||x>pw+20) return;
       const nm = names.get(p);
@@ -1122,6 +1194,27 @@ function draw(){
       const y = Y(p.p) + (p.t===1 ? -4 : 4);
       ctx.fillText(nm ? `${nm} ${fmt(p.p)}` : fmt(p.p), x, y);
     });
+    // 手動のA・B・C：太い折れ線と、つかめる丸いハンドル
+    if (manual){
+      const pts = [W2.A, W2.B, W2.C];
+      ctx.strokeStyle = C.gold; ctx.lineWidth = 2.4;
+      ctx.beginPath(); pts.forEach((p,j) => { const x=X(p.i), y=Y(p.p); j ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+      ctx.font = `bold 11px ${C.num}`;
+      pts.forEach((p,j) => {
+        const x = X(p.i), y = Y(p.p);
+        handles.push({j, x, y});
+        const active = S.dragPt === j;
+        ctx.fillStyle = C.bg; ctx.strokeStyle = C.gold; ctx.lineWidth = active ? 3 : 2;
+        ctx.beginPath(); ctx.arc(x, y, active ? 9 : 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = C.gold; ctx.textBaseline = 'middle'; ctx.fillText('ABC'[j], x, y+0.5);
+        ctx.fillStyle = C.ink; ctx.textBaseline = p.t===1 ? 'bottom' : 'top';
+        ctx.fillText(fmt(p.p), x, y + (p.t===1 ? -11 : 11));
+      });
+    }
+  }
+  if (S.placing !== null){
+    ctx.fillStyle = C.gold; ctx.font = `bold 12px ${C.body}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(`${'ABC'[S.placing]} を置く位置をクリック（高値・安値に吸着）`, 8, 56);
   }
 
   // 値幅観測
@@ -1391,6 +1484,10 @@ function renderGroups(){
 const rel = n => n > 0 ? `あと${n}本` : n === 0 ? '今の足' : `${-n}本前に経過`;
 function renderWave(){
   const R = S.res[S.tf], t = TF[S.tf].label;
+  const man = S.waveMode === 'manual';
+  $('#wvAuto').setAttribute('aria-pressed', String(!man)); $('#wvMan').setAttribute('aria-pressed', String(man));
+  $('#wvTools').hidden = !man; $('#wvHint').hidden = !man;
+  document.querySelectorAll('[data-place]').forEach(b => b.setAttribute('aria-pressed', String(S.placing === +b.dataset.place)));
   $('#wTitle').textContent = `波動と値幅観測（${t}）`;
   $('#tTitle').textContent = `時間論（${t}）`;
   $('#lTitle').textContent = `相場水準（${t}・期間ごとの半値）`;
@@ -1406,6 +1503,7 @@ function renderWave(){
       return `<tr><td><span class="sw" style="background:var(${sw[k]})"></span>${k}計算値<div class="mu" style="font-size:.68rem">${W.up?desc[k]:desc[k].replace(/＋/g,'−')}</div></td><td class="num">${fmt(val)}</td><td class="num ${reached?'mu':(dist>0?'up-t':'dn-t')}">${reached?'到達済み':(dist>0?'+':'')+fmt(dist)}</td></tr>`;
     }).join('');
     el.innerHTML =
+      (W.manual ? '<div class="mu" style="font-size:.72rem;margin-bottom:4px">手動で指定したA・B・Cで計算</div>' : (man ? '<div class="mu" style="font-size:.72rem;margin-bottom:4px">この時間足はまだ手動点がないため自動判定を表示（「◯を置く」で指定）</div>' : '')) +
       `<div class="wstat ${W.dir>0?'up-t':'dn-t'}">${W.status}</div><div style="font-size:.8rem">${W.note}</div>` +
       `<dl class="kv" style="margin-top:8px">` +
       `<dt>A ${W.up?'安値':'高値'}</dt><dd class="num">${fmt(W.A.p)} <span class="mu">${fmtT(R.S.t[W.A.i], m, true)}</span></dd>` +
@@ -1437,7 +1535,7 @@ function renderAll(){
 }
 
 /* ===================== 操作 ===================== */
-const setTF = k => { S.tf = k; S.hover = null; savePrefs(); renderAll(); tick(); };
+const setTF = k => { S.tf = k; S.hover = null; S.placing = null; if (S.waveMode === 'manual'){ seedManual(); recomputeWave(k); } savePrefs(); renderAll(); tick(); };
 $('#tfSeg').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (b) setTF(b.dataset.tf); });
 $('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
 [['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr']].forEach(([id,k]) => {
@@ -1446,9 +1544,14 @@ $('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-t
 $('#pivN').addEventListener('change', e => {
   const v = clamp(parseInt(e.target.value,10) || 5, 2, 30); e.target.value = v;
   S.piv[S.tf] = v; savePrefs(); const R = S.res[S.tf]; if (!R) return;
-  R.piv = pivots(R.S.h, R.S.l, v); R.wave = waveInfo(R); renderWave(); requestDraw();
+  R.piv = pivots(R.S.h, R.S.l, v); recomputeWave(S.tf); renderWave(); requestDraw();
 });
 $('#srcSel').addEventListener('change', e => switchSource(e.target.value));
+$('#wvAuto').addEventListener('click', () => { S.waveMode = 'auto'; S.placing = null; recomputeWave(S.tf); savePrefs(); renderWave(); renderAllSR(); requestDraw(); });
+$('#wvMan').addEventListener('click', () => { S.waveMode = 'manual'; seedManual(); recomputeWave(S.tf); savePrefs(); renderWave(); renderAllSR(); requestDraw(); });
+$('#wvReset').addEventListener('click', () => { clearManual(); seedManual(); recomputeWave(S.tf); savePrefs(); renderWave(); renderAllSR(); requestDraw(); });
+document.querySelectorAll('[data-place]').forEach(b => b.addEventListener('click', () => { const w = +b.dataset.place; S.placing = S.placing === w ? null : w; renderWave(); requestDraw(); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.placing !== null){ S.placing = null; renderWave(); requestDraw(); } });
 $('#symSel').addEventListener('change', e => switchSymbol(e.target.value));
 $('#keySave').addEventListener('click', () => { S.key = $('#apiKey').value.trim(); switchSource('twelve'); });
 $('#keySave').title = '金とドル円で使えます';
@@ -1475,15 +1578,30 @@ $('#zEnd').addEventListener('click', () => { resetView(S.tf, true); requestDraw(
 
 const ptrs = new Map(); let drag = null, pinch = null;
 const dist = () => { const a = [...ptrs.values()]; return Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y); };
+function barAt(x){ return Math.round(geom.v.right - (geom.pw - x - geom.bw/2)/geom.bw); }
+function priceAt(y){ return geom.lo + (geom.ph - y)/geom.ph*(geom.hi - geom.lo); }
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, {x:e.offsetX, y:e.offsetY});
   const v = S.view[S.tf]; if (!v) return;
+  if (ptrs.size === 1 && geom && S.waveMode === 'manual'){
+    if (S.placing !== null){
+      setManualPoint(S.placing, barAt(e.offsetX), priceAt(e.offsetY));
+      S.placing = null; drag = null; renderWave(); requestDraw(); return;
+    }
+    const r = e.pointerType === 'touch' ? 18 : 12;
+    const h = handles.find(h => Math.hypot(h.x - e.offsetX, h.y - e.offsetY) <= r);
+    if (h){ S.dragPt = h.j; drag = null; requestDraw(); return; }
+  }
   if (ptrs.size === 1) drag = {x:e.offsetX, right:v.right};
   if (ptrs.size === 2){ drag = null; pinch = {d:dist(), count:v.count}; }
 });
 cv.addEventListener('pointermove', e => {
   if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, {x:e.offsetX, y:e.offsetY});
   const v = S.view[S.tf], R = S.res[S.tf]; if (!v || !R || !geom) return;
+  if (S.dragPt !== null && ptrs.size === 1){
+    setManualPoint(S.dragPt, barAt(e.offsetX), priceAt(e.offsetY));
+    S.hover = null; requestDraw(); return;
+  }
   if (pinch && ptrs.size === 2){
     const d = dist(); if (d > 10){ const L = R.S.t.length-1; v.count = clamp(pinch.count * pinch.d / d, 20, Math.max(40, Math.min(2000, L+200))); }
   } else if (drag){
@@ -1492,7 +1610,8 @@ cv.addEventListener('pointermove', e => {
   S.hover = (e.pointerType === 'mouse' || drag) ? {x:e.offsetX, y:e.offsetY} : S.hover;
   requestDraw();
 });
-const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null; };
+const endPtr = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) drag = null; if (S.dragPt !== null){ S.dragPt = null; renderWave(); renderAllSR(); requestDraw(); } };
+function renderAllSR(){ S.sr = calcSR(); S.rx = reactions(); renderSR(); }
 cv.addEventListener('pointerup', endPtr);
 cv.addEventListener('pointercancel', endPtr);
 cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ S.hover = null; requestDraw(); } });
