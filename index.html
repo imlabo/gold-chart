@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>GOLD 一目チャート</title>
+<title>一目マルチチャート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Shippori+Mincho+B1:wght@700&display=swap">
@@ -184,7 +184,7 @@ details.help p{margin:6px 0}
 <div class="app">
   <header class="top">
     <div class="brand">
-      <h1>GOLD 一目チャート</h1>
+      <h1 id="h1">GOLD 一目チャート</h1>
       <span class="sym" id="sym">XAU/USD</span>
     </div>
     <div class="quote">
@@ -198,10 +198,8 @@ details.help p{margin:6px 0}
     <span class="dot" id="dot" aria-hidden="true"></span>
     <span class="feedtxt" id="feedTxt">価格を取得しています…</span>
     <span class="feedctl">
-      <label class="ctl" for="srcSel">データ元<select id="srcSel">
-        <option value="binance">Binance PAXG（登録不要）</option>
-        <option value="twelve">Twelve Data XAU/USD（無料キー）</option>
-      </select></label>
+      <label class="ctl" for="symSel">銘柄<select id="symSel"></select></label>
+      <label class="ctl" for="srcSel">データ元<select id="srcSel"></select></label>
       <span class="keybox" id="keyBox" hidden>
         <label class="ctl" for="apiKey">APIキー<input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="無料キーを貼り付け"></label>
         <button class="btn" type="button" id="keySave">保存して取得</button>
@@ -283,8 +281,8 @@ details.help p{margin:6px 0}
       <section class="card">
         <details class="help">
           <summary>データ元と見方</summary>
-          <p><b>Binance PAXG</b>は登録不要で、15秒ごとに自動更新します。PAXGは金1トロイオンスと交換できるトークンで、値動きは金のスポット価格とほぼ同じですが、数ドルのずれと土日の値動きがあります。</p>
-          <p><b>Twelve Data XAU/USD</b>は金のスポット価格そのものです。twelvedata.com で無料登録してAPIキーを貼り付けると使えます。無料枠は1日800回・1分8回までなので、表示中の時間足を2分ごとに更新し、他の時間足は切り替えたときに10分以上古ければ取り直します。</p>
+          <p><b>ゴールド</b>：Binance PAXG は登録不要で15秒ごとに自動更新します（金1トロイオンス裏付けのトークンで、値動きは金スポットとほぼ同じ。数ドルのずれと土日の値動きあり）。Twelve Data XAU/USD は金スポットそのもので、twelvedata.com の無料APIキーが必要です（1日800回・1分8回の枠に収まるよう、表示中の足を3分ごと、他の足を1時間ごとに更新）。</p>
+          <p><b>日経225先物・NASDAQ100先物・ドル円・金先物</b>：ブラウザから直接は取れないため、このサイトの GitHub Actions が5分ごとに Yahoo Finance から四本値を取得して公開しています（日経225先物は CME 円建て NIY、NASDAQ は NQ、金先物は COMEX GC）。表示は約5分遅れで、1分足は直近7日分、5分足は7日、15分足は30日、1時間足は120日、日足は5年分から直近1,000本。4時間足は1時間足から合成します。ドル円は Twelve Data の無料キーでも取れます。</p>
           <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
           <p>支持線・抵抗線の主役は<b>お椀の水平線</b>です。日足・4時間・1時間で、過去のトレンドの起点（戻り売り・押し目買いの起点）から大きく離れたあと価格が全戻ししてきた価格を探し、深く・大きく・初回の戻りほど強くします。1分足・5分足の小さなお椀は使いません。二重線で描き、○がその起点です。</p>
           <p>水平線の近くに<b>移動平均線</b>（特に20と210、各時間足）があると大きく加点し、別の時間足のMAが2本以上重なればさらに加点します（右端の◆印）。ほかに三尊・逆三尊のネックライン候補、はっきりした一波の半値戻し、4時間足以上の大きなローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、基準線・先行スパン2の横ばい、$50・$100の節目を集め、近い価格をまとめて点数化します。その後に何度も抜けた価格は減点、直前にスラストがある側の水平線は警戒表示です。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
@@ -318,7 +316,7 @@ const PREFS = 'gold-ichimoku-chart-prefs-v1';
 
 /* ===================== 状態 ===================== */
 const S = {
-  tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
+  sym:'gold', tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
   layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null, rx:null,
   piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
   off3:0, off9:0, hover:null
@@ -326,7 +324,7 @@ const S = {
 
 /* ===================== ユーティリティ ===================== */
 const $ = s => document.querySelector(s);
-const fmt = v => Number.isFinite(v) ? v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+const fmt = v => Number.isFinite(v) ? v.toLocaleString('en-US',{minimumFractionDigits:SYM[S.sym].dec,maximumFractionDigits:SYM[S.sym].dec}) : '—';
 const pad = n => String(n).padStart(2,'0');
 const sgn = v => v > 0 ? 1 : v < 0 ? -1 : 0;
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -453,14 +451,30 @@ function waveInfo(R){
 
 /* ===================== データ取得（無料API） ===================== */
 // Binance：登録不要。PAXG（金1トロイオンス裏付けのトークン）の値動きは金スポットとほぼ同じ。
-// Twelve Data：無料登録のAPIキーで XAU/USD スポット。無料枠は1日800回・1分8回。
+// Twelve Data：無料登録のAPIキー。金スポット XAU/USD、ドル円 USD/JPY。無料枠は1日800回・1分8回。
+// GitHub（gh）：このリポジトリの Actions が5分ごとに Yahoo Finance から取得して data ブランチに置いたJSON。
+const GH_RAW = 'https://raw.githubusercontent.com/imlabo/gold-chart/data/';
+const SYM = {
+  gold:{name:'GOLD 一目チャート', label:'ゴールド', dec:2, round:[100,50], unit:'$', srcs:['binance','twelve','gh'],
+        binance:'PAXGUSDT', twelve:'XAU/USD', gh:'gc',
+        srcName:{binance:'Binance PAXG/USDT', twelve:'Twelve Data XAU/USD', gh:'金先物 GC（Yahoo・5分ごと）'},
+        symTxt:{binance:'PAXG/USDT（金連動）', twelve:'XAU/USD', gh:'GC=F 金先物'}},
+  nk:  {name:'日経225先物 一目チャート', label:'日経225先物', dec:0, round:[1000,500], unit:'', srcs:['gh'], gh:'nk',
+        srcName:{gh:'日経225先物 NIY（Yahoo・5分ごと）'}, symTxt:{gh:'NIY=F 日経225先物（CME円建て）'}},
+  nq:  {name:'NASDAQ100先物 一目チャート', label:'NASDAQ100先物', dec:2, round:[500,100], unit:'', srcs:['gh'], gh:'nq',
+        srcName:{gh:'NASDAQ100先物 NQ（Yahoo・5分ごと）'}, symTxt:{gh:'NQ=F NASDAQ100先物'}},
+  jpy: {name:'ドル円 一目チャート', label:'ドル円', dec:3, round:[1,0.5], unit:'', srcs:['gh','twelve'], gh:'jpy', twelve:'USD/JPY',
+        srcName:{gh:'ドル円 USD/JPY（Yahoo・5分ごと）', twelve:'Twelve Data USD/JPY'}, symTxt:{gh:'USD/JPY', twelve:'USD/JPY'}}
+};
 const SRC = {
-  binance:{name:'Binance PAXG/USDT', sym:'PAXG/USDT（金連動）', live:15,  other:300},
-  twelve: {name:'Twelve Data XAU/USD', sym:'XAU/USD',           live:180, other:3600}
+  binance:{live:15,  other:300},
+  twelve: {live:180, other:3600},
+  gh:     {live:60,  other:300}
 };
 const BN = {'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d'};
 const TD = {'1':'1min','5':'5min','15':'15min','60':'1h','240':'4h','D':'1day'};
 const BN_HOSTS = ['https://data-api.binance.vision', 'https://api.binance.com'];
+const srcLabel = () => SYM[S.sym].srcName[S.src] || S.src;
 
 async function getJSON(url, ms){
   const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms || 12000);
@@ -475,7 +489,7 @@ async function fetchBinance(k){
   let last = null;
   for (const host of BN_HOSTS){
     try{
-      const j = await getJSON(`${host}/api/v3/klines?symbol=PAXGUSDT&interval=${BN[k]}&limit=1000`);
+      const j = await getJSON(`${host}/api/v3/klines?symbol=${SYM[S.sym].binance}&interval=${BN[k]}&limit=1000`);
       if (!Array.isArray(j)) throw new Error('想定外の応答');
       const s = emptySeries();
       for (const r of j){ s.t.push(+r[0]); s.o.push(+r[1]); s.h.push(+r[2]); s.l.push(+r[3]); s.c.push(+r[4]); }
@@ -486,7 +500,7 @@ async function fetchBinance(k){
 }
 async function fetchTwelve(k){
   if (!S.key) throw new Error('Twelve DataのAPIキーを入力してください');
-  const j = await getJSON(`https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=${TD[k]}&outputsize=1000&timezone=UTC&order=ASC&apikey=${encodeURIComponent(S.key)}`);
+  const j = await getJSON(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(SYM[S.sym].twelve)}&interval=${TD[k]}&outputsize=1000&timezone=UTC&order=ASC&apikey=${encodeURIComponent(S.key)}`);
   if (!j || j.status === 'error' || !Array.isArray(j.values)) throw new Error('Twelve Data：' + ((j && j.message) || '取得できませんでした'));
   const rows = [];
   for (const v of j.values){
@@ -499,13 +513,26 @@ async function fetchTwelve(k){
   for (const r of rows){ if (r.slice(1).every(Number.isFinite)){ s.t.push(r[0]); s.o.push(r[1]); s.h.push(r[2]); s.l.push(r[3]); s.c.push(r[4]); } }
   return s;
 }
+async function fetchGH(k){
+  const key = SYM[S.sym].gh;
+  const file = k === '240' ? '60' : k;                 // 4時間足は1時間足から合成
+  const bust = Math.floor(Date.now()/60000);
+  let j;
+  try{ j = await getJSON(`${GH_RAW}${key}_${file}.json?v=${bust}`, 15000); }
+  catch(e){ throw new Error(e.message === 'HTTP 404' ? 'データ配信がまだ始まっていません（GitHub Actions の初回実行待ち）' : `GitHubのデータを取得できません（${e.message}）`); }
+  if (!j || !Array.isArray(j.bars)) throw new Error('データ形式が想定外です');
+  const s = emptySeries();
+  for (const b of j.bars){ s.t.push(+b[0]); s.o.push(+b[1]); s.h.push(+b[2]); s.l.push(+b[3]); s.c.push(+b[4]); }
+  S.ghUpdated = j.updated || 0;
+  return k === '240' ? resample(s, 240) : s;
+}
 const inflight = {};
 function fetchTF(k){
   if (inflight[k]) return inflight[k];
-  const src = S.src;
+  const src = S.src, sym = S.sym;
   const p = (async () => {
-    const s = src === 'twelve' ? await fetchTwelve(k) : await fetchBinance(k);
-    if (src !== S.src) return;                       // 取得中にデータ元が変わった
+    const s = src === 'twelve' ? await fetchTwelve(k) : src === 'gh' ? await fetchGH(k) : await fetchBinance(k);
+    if (src !== S.src || sym !== S.sym) return;      // 取得中に銘柄・データ元が変わった
     if (s.t.length < 10) throw new Error('データが空です');
     const old = S.res[k], v = S.view[k];
     const keep = (old && v) ? (old.S.t.length-1) - v.right : null;   // 右端からの位置を保つ
@@ -550,16 +577,24 @@ function resetView(k, force){
   else v.right = clamp(v.right, 10, L + 180);
 }
 function switchSource(src){
-  S.src = src; S.series = {}; S.res = {}; S.view = {}; S.fetched = {}; S.err = ''; S.lastAt = 0;
+  if (!SYM[S.sym].srcs.includes(src)) src = SYM[S.sym].srcs[0];
+  S.src = src; S.series = {}; S.res = {}; S.view = {}; S.fetched = {}; S.err = ''; S.lastAt = 0; S.sr = null; S.rx = null;
   savePrefs(); renderAll(); tick();
 }
+function switchSymbol(sym){
+  if (!SYM[sym]) return;
+  S.sym = sym;
+  const c = SYM[sym];
+  switchSource(c.srcs.includes(S.src) ? S.src : c.srcs[0]);
+}
 function savePrefs(){
-  try{ localStorage.setItem(PREFS, JSON.stringify({src:S.src, key:S.key, tf:S.tf, piv:S.piv})); } catch(e){}
+  try{ localStorage.setItem(PREFS, JSON.stringify({sym:S.sym, src:S.src, key:S.key, tf:S.tf, piv:S.piv})); } catch(e){}
 }
 function loadPrefs(){
   try{
     const j = JSON.parse(localStorage.getItem(PREFS) || 'null'); if (!j) return;
-    if (SRC[j.src]) S.src = j.src;
+    if (SYM[j.sym]) S.sym = j.sym;
+    if (SRC[j.src] && SYM[S.sym].srcs.includes(j.src)) S.src = j.src;
     if (typeof j.key === 'string') S.key = j.key;
     if (TF[j.tf]) S.tf = j.tf;
     if (j.piv) for (const k in j.piv) if (TF[k] && Number.isFinite(+j.piv[k])) S.piv[k] = clamp(+j.piv[k], 2, 30);
@@ -766,9 +801,10 @@ function calcSR(){
     let sc = z.sw;
     if (hasH && hasL) sc *= 1.3;                                   // 役割の入れ替わり
     sc *= 1 + 0.2 * (tfs.size - 1);                                // 時間足の重なり
-    const r100 = Math.abs(z.p - Math.round(z.p/100)*100), r50 = Math.abs(z.p - Math.round(z.p/50)*50);
-    z.round = r100 <= tol ? 100 : r50 <= tol ? 50 : 0;
-    if (z.round === 100) sc += 2; else if (z.round === 50) sc += 1;
+    const [rb, rs] = SYM[S.sym].round;
+    const r100 = Math.abs(z.p - Math.round(z.p/rb)*rb), r50 = Math.abs(z.p - Math.round(z.p/rs)*rs);
+    z.round = r100 <= tol ? rb : r50 <= tol ? rs : 0;
+    if (z.round === rb) sc += 2; else if (z.round === rs) sc += 1;
     // 移動平均線との重なり（近いほど大きく加点。別の時間足のMAが2本以上重なればさらに加点）
     z.mas = [];
     let maBonus = 0;
@@ -821,7 +857,7 @@ function srTags(z){
   if (z.items.some(x=>x.kind==='N')) t.push({c:'neck', s:'ネック候補'});
   if (z.items.some(x=>x.kind==='O')) t.push({c:'open', s:'本日始値'});
   if (z.items.some(x=>x.kind==='F')) t.push({c:'half', s:'半値戻し'});
-  if (z.round) t.push({c:'round', s:`$${z.round}`});
+  if (z.round) t.push({c:'round', s:`${SYM[S.sym].unit}${z.round}の節目`});
   if (z.thrustWarn) t.push({c:'warn', s:'スラスト警戒'});
   return t;
 }
@@ -845,7 +881,7 @@ function srWhy(z){
   const o = z.items.find(x=>x.kind==='O');
   if (o){ const d = S.sr && S.sr.dayOpen; parts.push(`本日の日足始値（${d && d.bull ? '陰線にさせまい' : '陽線にさせまい'}${d && d.streak ? '・3日連続' : ''}）`); }
   if (z.flip) parts.push('役割の入れ替わり');
-  if (z.round) parts.push(`$${z.round}の節目`);
+  if (z.round) parts.push(`${SYM[S.sym].unit}${z.round}の節目`);
   if (z.cross >= 3) parts.push(`その後${z.cross}回抜けている`);
   if (z.thrustWarn) parts.push('直前にスラスト（小刻みな切り上げ／下げ）があり逆張りは警戒');
   return parts.join('・');
@@ -1252,19 +1288,26 @@ function renderTop(){
   } else $('#qChg').textContent = '';
 }
 function renderFeed(){
-  const el = $('#feed'), src = SRC[S.src];
-  $('#sym').textContent = src.sym;
-  $('#srcSel').value = S.src;
+  const el = $('#feed'), src = SRC[S.src], cfg = SYM[S.sym];
+  $('#h1').textContent = cfg.name;
+  $('#sym').textContent = cfg.symTxt[S.src] || '';
+  const ss = $('#symSel'); if (ss.options.length !== Object.keys(SYM).length) ss.innerHTML = Object.keys(SYM).map(k => `<option value="${k}">${SYM[k].label}</option>`).join('');
+  ss.value = S.sym;
+  const so = $('#srcSel'); const want = cfg.srcs.map(k => `<option value="${k}">${cfg.srcName[k]}</option>`).join('');
+  if (so.dataset.sym !== S.sym){ so.innerHTML = want; so.dataset.sym = S.sym; }
+  so.value = S.src;
   $('#keyBox').hidden = S.src !== 'twelve';
   let st, txt;
   if (S.src === 'twelve' && !S.key){ st = 'error'; txt = 'Twelve Dataの無料APIキーを入力してください（twelvedata.com で登録すると発行されます）'; }
-  else if (!S.lastAt){ st = S.err ? 'error' : 'loading'; txt = S.err || `${src.name} から価格を取得しています…`; }
+  else if (!S.lastAt){ st = S.err ? 'error' : 'loading'; txt = S.err || `${srcLabel()} から価格を取得しています…`; }
   else {
     const f = S.fetched[S.tf];
     const left = f ? Math.max(0, Math.ceil((f + src.live*1000 - Date.now())/1000)) : 0;
     const d = new Date(S.lastAt), hm = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    let age = '';
+    if (S.src === 'gh' && S.ghUpdated){ const mins = Math.round((Date.now() - S.ghUpdated)/60000); age = `・配信データは${mins}分前に取得されたもの`; if (mins > 30) age += '（更新が止まっている可能性）'; }
     if (S.err){ st = 'error'; txt = `${S.err}。前回取得した値（${hm}）を表示中`; }
-    else { st = 'live'; txt = `${src.name} 自動更新中・最終取得 ${hm}・次の更新まで ${busy ? '取得中' : left + '秒'}`; }
+    else { st = 'live'; txt = `${srcLabel()} 自動更新中・最終取得 ${hm}・次の確認まで ${busy ? '取得中' : left + '秒'}${age}`; }
   }
   el.dataset.state = st;
   $('#feedTxt').textContent = txt;
@@ -1406,7 +1449,9 @@ $('#pivN').addEventListener('change', e => {
   R.piv = pivots(R.S.h, R.S.l, v); R.wave = waveInfo(R); renderWave(); requestDraw();
 });
 $('#srcSel').addEventListener('change', e => switchSource(e.target.value));
+$('#symSel').addEventListener('change', e => switchSymbol(e.target.value));
 $('#keySave').addEventListener('click', () => { S.key = $('#apiKey').value.trim(); switchSource('twelve'); });
+$('#keySave').title = '金とドル円で使えます';
 $('#apiKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('#keySave').click(); } });
 $('#btnNow').addEventListener('click', () => { if (!busy) refresh([S.tf, ...TFS.map(t=>t.k).filter(k => k !== S.tf)]); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
