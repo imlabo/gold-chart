@@ -151,6 +151,18 @@ table.tg2 th{color:var(--mute);font-weight:700;text-align:right}
 table.tg2 td:first-child,table.tg2 th:first-child{text-align:left}
 .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
 .hit{color:var(--time);font-weight:700}
+.srlist{display:grid;gap:2px;margin-top:6px}
+.sr{display:grid;grid-template-columns:2.4em 5.6em 1fr auto;gap:4px 8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--grid);font-size:.78rem}
+.sr .tag{font-family:var(--f-num);font-weight:700;font-size:.72rem;border-radius:3px;padding:1px 0;text-align:center}
+.sr.res .tag{background:var(--down-bg);color:var(--down)} .sr.sup .tag{background:var(--up-bg);color:var(--up)}
+.sr .px{font-family:var(--f-num);font-weight:600;font-variant-numeric:tabular-nums}
+.sr .meter{height:6px;border-radius:3px;background:var(--grid);overflow:hidden;min-width:40px}
+.sr .meter b{display:block;height:100%;border-radius:3px}
+.sr.res .meter b{background:var(--down)} .sr.sup .meter b{background:var(--up)}
+.sr .dist{font-family:var(--f-num);font-size:.72rem;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums}
+.sr .why{grid-column:2 / -1;color:var(--mute);font-size:.72rem;line-height:1.45}
+.sr.now{padding:3px 0;border-bottom:1px dashed var(--line)}
+.sr.now .px{color:var(--gold)}
 details.help{font-size:.8rem;color:var(--mute)}
 details.help summary{cursor:pointer;color:var(--ink);font-weight:700}
 details.help p{margin:6px 0}
@@ -195,6 +207,7 @@ details.help p{margin:6px 0}
       <label class="tg"><input type="checkbox" id="lyWave" checked><i style="background:var(--zig)"></i>波動</label>
       <label class="tg"><input type="checkbox" id="lyTgt" checked><i style="background:var(--gold)"></i>値幅観測</label>
       <label class="tg"><input type="checkbox" id="lyTime" checked><i style="background:var(--time)"></i>時間論</label>
+      <label class="tg"><input type="checkbox" id="lySR" checked><i style="background:var(--ink)"></i>支持・抵抗</label>
     </div>
     <label class="ctl" for="pivN">山・谷の判定本数<input type="number" id="pivN" min="2" max="30" value="5"></label>
   </div>
@@ -219,6 +232,11 @@ details.help p{margin:6px 0}
       <section class="card">
         <h2>時間足ごとの判定</h2>
         <div class="tw"><table class="mtf" id="mtf"></table></div>
+      </section>
+
+      <section class="card">
+        <h2>支持線・抵抗線（日足→4時間→1時間→15分）</h2>
+        <div id="srBox"><span class="mu">日足から順に取得しています…</span></div>
       </section>
 
       <section class="card multi">
@@ -257,6 +275,7 @@ details.help p{margin:6px 0}
           <p><b>Binance PAXG</b>は登録不要で、15秒ごとに自動更新します。PAXGは金1トロイオンスと交換できるトークンで、値動きは金のスポット価格とほぼ同じですが、数ドルのずれと土日の値動きがあります。</p>
           <p><b>Twelve Data XAU/USD</b>は金のスポット価格そのものです。twelvedata.com で無料登録してAPIキーを貼り付けると使えます。無料枠は1日800回・1分8回までなので、表示中の時間足を2分ごとに更新し、他の時間足は切り替えたときに10分以上古ければ取り直します。</p>
           <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
+          <p>支持線・抵抗線は日足→4時間→1時間→15分の順に山と谷、基準線・先行スパン2の横ばいを集め、近い価格をまとめて点数化しています。大きい時間足、新しい反転、山と谷の両方で効いた価格、複数の時間足で重なる価格、$50・$100の節目ほど高く、その後に何度も抜けた価格は低くなります。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
           <p>雲は26本先にずらして描き、遅行スパンは26本前に描いています。三役は「転換線が基準線より上」「価格が雲の上」「遅行スパンが26本前のローソク足より上」の3つがそろった状態です。</p>
         </details>
       </section>
@@ -287,7 +306,7 @@ const PREFS = 'gold-ichimoku-chart-prefs-v1';
 /* ===================== 状態 ===================== */
 const S = {
   tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
-  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true},
+  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null,
   piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
   off3:0, off9:0, hover:null
 };
@@ -534,6 +553,131 @@ function loadPrefs(){
   } catch(e){}
 }
 
+/* ===================== 支持線・抵抗線 ===================== */
+// 大きな時間足から順に「反転した価格」を集め、近い価格同士をまとめて強さを点数化する。
+//  ・山・谷：日足5点、4時間3点、1時間2点、15分1点。新しいものほど重く、古いものも3割は残す
+//  ・基準線・先行スパン2の横ばい（同じ値が9本以上続いた区間）：日足・4時間足のみ。一目の重要な節
+//  ・同じ価格で山と谷の両方がある（役割の入れ替わり）、複数の時間足が重なる、$50・$100の節目 で加点
+//  ・その後に終値で何度も抜けた価格は効きが弱いとみなして減点
+const SR_TF = [
+  {k:'D',   w:5, piv:3, label:'日足'},
+  {k:'240', w:3, piv:4, label:'4時間'},
+  {k:'60',  w:2, piv:5, label:'1時間'},
+  {k:'15',  w:1, piv:6, label:'15分'}
+];
+const SR_SIDE = 4;           // 上下それぞれ最大4本
+function atrOf(s, n){
+  const L = s.t.length-1; if (L < n+1) return NaN;
+  let sum = 0; for (let i=L-n+1;i<=L;i++) sum += Math.max(s.h[i]-s.l[i], Math.abs(s.h[i]-s.c[i-1]), Math.abs(s.l[i]-s.c[i-1]));
+  return sum/n;
+}
+function flatRuns(arr, t, minLen, maxBack){
+  const out = [], n = arr.length; let i = n-1, stop = Math.max(0, n-maxBack);
+  while (i > stop){
+    const v = arr[i]; if (!Number.isFinite(v)){ i--; continue; }
+    let j = i; while (j-1 >= stop && arr[j-1] === v) j--;
+    if (i-j+1 >= minLen) out.push({p:v, len:i-j+1, t:t[i], end:i});
+    i = j-1;
+  }
+  return out;
+}
+function calcSR(){
+  const ref = S.res['60'] || S.res[S.tf] || S.res['D'];
+  if (!ref) return null;
+  const now = ref.S.t[ref.S.t.length-1], price = ref.S.c[ref.S.c.length-1];
+  const D = S.res['D'];
+  let atr = D ? atrOf(D.S, 14) : NaN;
+  if (!Number.isFinite(atr) && S.res['60']) atr = atrOf(S.res['60'].S, 24) * 4.5;
+  if (!Number.isFinite(atr) || atr <= 0) atr = price * 0.012;
+  const tol = Math.max(atr * 0.12, price * 0.0006);   // 同じ価格とみなす幅
+  const range = atr * 6;                               // 現在値から探す範囲
+  const rec = t => 0.3 + 0.7 * Math.exp(-(now - t) / 86400000 / 75);
+
+  const cands = []; const used = [];
+  for (const f of SR_TF){
+    const R = S.res[f.k]; if (!R) continue;
+    used.push(f.label);
+    const s = R.S, L = s.t.length-1;
+    for (const p of pivots(s.h, s.l, f.piv)){
+      if (Math.abs(p.p - price) > range) continue;
+      cands.push({p:p.p, w:f.w*rec(s.t[p.i]), tf:f.k, kind:p.t===1?'H':'L', i:p.i, t:s.t[p.i], R});
+    }
+    if (f.k === 'D' || f.k === '240'){
+      for (const [arr, nm, mult] of [[R.kij, '基準線', 1.0], [R.spB, '先行スパン2', 1.2]]){
+        for (const r of flatRuns(arr, s.t, 9, 400)){
+          if (Math.abs(r.p - price) > range) continue;
+          cands.push({p:r.p, w:f.w*mult*Math.min(2, r.len/9)*rec(r.t), tf:f.k, kind:'K', nm, len:r.len, t:r.t, R});
+        }
+      }
+    }
+  }
+  if (!cands.length) return {levels:[], price, tol, used};
+  cands.sort((a,b) => a.p - b.p);
+
+  // 近い価格をまとめる
+  const cl = [];
+  for (const c of cands){
+    const last = cl[cl.length-1];
+    if (last && c.p - last.lo <= tol*2 && Math.abs(c.p - last.p) <= tol){
+      last.items.push(c); last.sw += c.w; last.p = last.items.reduce((a,x)=>a+x.p*x.w,0)/last.sw; last.hi = c.p;
+    } else cl.push({items:[c], sw:c.w, p:c.p, lo:c.p, hi:c.p});
+  }
+
+  // 点数化
+  const H1 = S.res['60'];
+  for (const z of cl){
+    const tfs = new Set(z.items.map(x=>x.tf));
+    const hasH = z.items.some(x=>x.kind==='H'), hasL = z.items.some(x=>x.kind==='L');
+    let sc = z.sw;
+    if (hasH && hasL) sc *= 1.35;                                  // 役割の入れ替わり
+    sc *= 1 + 0.25 * (tfs.size - 1);                               // 時間足の重なり
+    const r100 = Math.abs(z.p - Math.round(z.p/100)*100), r50 = Math.abs(z.p - Math.round(z.p/50)*50);
+    z.round = r100 <= tol ? 100 : r50 <= tol ? 50 : 0;
+    if (z.round === 100) sc += 2.5; else if (z.round === 50) sc += 1.2;
+    // 最後に反転した後、1時間足の終値でこの価格を何回抜けたか（多いほど効いていない）
+    if (H1){
+      const last = Math.max(...z.items.map(x=>x.t)), s = H1.S; let cross = 0, side = 0;
+      for (let i=0;i<s.t.length;i++){
+        if (s.t[i] <= last) continue;
+        const sd = s.c[i] > z.p + tol*0.5 ? 1 : s.c[i] < z.p - tol*0.5 ? -1 : 0;
+        if (sd && side && sd !== side) cross++;
+        if (sd) side = sd;
+      }
+      z.cross = cross; sc *= 1 / (1 + 0.18*cross);
+    } else z.cross = 0;
+    z.score = sc; z.tfs = tfs; z.flip = hasH && hasL;
+  }
+
+  // 現在値の上を抵抗、下を支持として、それぞれ点数上位を採用
+  const pick = (arr) => arr.sort((a,b)=>b.score-a.score).slice(0, SR_SIDE);
+  const above = pick(cl.filter(z => z.p > price + tol*0.25));
+  const below = pick(cl.filter(z => z.p < price - tol*0.25));
+  const levels = [...above.map(z=>(z.side='res',z)), ...below.map(z=>(z.side='sup',z))];
+  const mx = Math.max(...levels.map(z=>z.score), 1e-9);
+  const order = [...levels].sort((a,b)=>b.score-a.score);
+  order.forEach((z,r) => { z.rank = r+1; z.str = z.score/mx; });
+  // 現在値から近い順に R1,R2… / S1,S2…
+  above.sort((a,b)=>a.p-b.p).forEach((z,i)=>z.name='R'+(i+1));
+  below.sort((a,b)=>b.p-a.p).forEach((z,i)=>z.name='S'+(i+1));
+  for (const z of levels) z.why = srWhy(z);
+  return {levels, price, tol, used};
+}
+function srWhy(z){
+  const parts = [];
+  for (const f of SR_TF){
+    const it = z.items.filter(x=>x.tf===f.k);
+    const h = it.filter(x=>x.kind==='H').length, l = it.filter(x=>x.kind==='L').length;
+    const k = it.filter(x=>x.kind==='K');
+    if (h) parts.push(`${f.label}高値×${h}`);
+    if (l) parts.push(`${f.label}安値×${l}`);
+    for (const nm of new Set(k.map(x=>x.nm))) parts.push(`${f.label}${nm}横ばい`);
+  }
+  if (z.flip) parts.push('役割の入れ替わり');
+  if (z.round) parts.push(`$${z.round}の節目`);
+  if (z.cross >= 3) parts.push(`その後${z.cross}回抜けている`);
+  return parts.join('・');
+}
+
 /* ===================== チャート描画 ===================== */
 const cv = $('#chart');
 let raf = 0;
@@ -599,6 +743,24 @@ function draw(){
     }
     poly(ctx, i => R.spA[i-OFF], Math.max(i0,OFF), Math.min(i1,L+OFF), C.kumoUpL, 1);
     poly(ctx, i => R.spB[i-OFF], Math.max(i0,OFF), Math.min(i1,L+OFF), C.kumoDnL, 1);
+  }
+
+  // 支持線・抵抗線（強いものほど濃く・太く）
+  if (S.layers.sr && S.sr && S.sr.levels.length){
+    const lv = [...S.sr.levels].sort((a,b)=>a.str-b.str);      // 弱い順に描き、強い線を上に重ねる
+    for (const z of lv){
+      const y = Y(z.p); if (y < -20 || y > ph+20) continue;
+      const col = z.side === 'res' ? C.down : C.up;
+      const a = 0.16 + 0.84*Math.pow(z.str, 1.2);
+      ctx.globalAlpha = a*0.13; ctx.fillStyle = col;
+      const bh = Math.max(2, Math.abs(Y(z.p - S.sr.tol/2) - Y(z.p + S.sr.tol/2)));
+      ctx.fillRect(0, y-bh/2, pw, bh);
+      ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 0.8 + 2.4*z.str;
+      ctx.setLineDash(z.str > 0.55 ? [] : [8,5]);
+      ctx.beginPath(); ctx.moveTo(0, Math.round(y)+.5); ctx.lineTo(pw, Math.round(y)+.5); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = 1;
   }
 
   const W2 = R.wave;
@@ -694,6 +856,23 @@ function draw(){
   }
   ctx.restore();
 
+  // 支持線・抵抗線のラベル（強い順に置き、重なるものは省く）
+  if (S.layers.sr && S.sr && S.sr.levels.length){
+    ctx.font = `600 10.5px ${C.num}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const placed = [];
+    for (const z of [...S.sr.levels].sort((a,b)=>b.str-a.str)){
+      const y = Y(z.p); if (y < 8 || y > ph-8) continue;
+      if (placed.some(py => Math.abs(py-y) < 15)) continue;
+      placed.push(y);
+      const col = z.side === 'res' ? C.down : C.up;
+      const txt = `${z.name} ${fmt(z.p)}  強さ${z.rank}位`;
+      const tw = ctx.measureText(txt).width + 10;
+      ctx.globalAlpha = 0.35 + 0.65*z.str;
+      ctx.fillStyle = col; ctx.fillRect(6, y-8, tw, 16);
+      ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillText(txt, 11, y+0.5);
+    }
+  }
+
   // 現在値
   const last = R.S.c[L], yl = Y(last);
   const lcol = last >= R.S.o[L] ? C.up : C.down;
@@ -770,6 +949,24 @@ function renderReadout(){
 }
 
 /* ===================== 分析レール ===================== */
+function renderSR(){
+  const el = $('#srBox'), Z = S.sr;
+  if (!Z){ el.innerHTML = '<span class="mu">日足から順に取得しています…</span>'; return; }
+  if (!Z.levels.length){ el.innerHTML = '<span class="mu">現在値の近くに目立つ反転価格が見つかりません</span>'; return; }
+  const res = Z.levels.filter(z=>z.side==='res').sort((a,b)=>b.p-a.p);
+  const sup = Z.levels.filter(z=>z.side==='sup').sort((a,b)=>b.p-a.p);
+  const row = z => {
+    const d = z.p - Z.price;
+    return `<div class="sr ${z.side}"><span class="tag">${z.name}</span><span class="px">${fmt(z.p)}</span>
+      <span class="meter" title="強さ ${Math.round(z.str*100)}"><b style="width:${Math.max(6, Math.round(z.str*100))}%;opacity:${(0.35+0.65*z.str).toFixed(2)}"></b></span>
+      <span class="dist">${d>0?'+':''}${fmt(d)}</span><span class="why">強さ${z.rank}位：${z.why}</span></div>`;
+  };
+  const missing = SR_TF.filter(f => !S.res[f.k]).map(f=>f.label);
+  el.innerHTML = `<div class="srlist">${res.map(row).join('')}
+    <div class="sr now"><span class="tag mu">現在</span><span class="px">${fmt(Z.price)}</span><span></span><span></span></div>
+    ${sup.map(row).join('')}</div>
+    <p class="mu" style="font-size:.72rem;margin:8px 0 0">線が濃く太いほど効きやすい価格です。同じ価格とみなす幅は ±${fmt(Z.tol)}（日足ATRの約12%）。${missing.length ? `${missing.join('・')}は取得待ちのため未反映。` : '日足・4時間・1時間・15分の4つの時間足から算出。'}</p>`;
+}
 const chip = (v, t) => `<span class="chip ${cls(v)}">${t}</span>`;
 function renderTop(){
   const R = S.res[S.tf], D = S.series['D'];
@@ -922,14 +1119,14 @@ function renderWave(){
     `<table class="tg2"><thead><tr><th>期間</th><th>半値</th><th>位置</th></tr></thead><tbody>${lv}</tbody></table>`;
 }
 function renderAll(){
-  renderFeed(); renderTF(); renderTop(); renderMTF(); renderGroups(); renderWave(); requestDraw();
+  S.sr = calcSR(); renderFeed(); renderTF(); renderTop(); renderMTF(); renderSR(); renderGroups(); renderWave(); requestDraw();
 }
 
 /* ===================== 操作 ===================== */
 const setTF = k => { S.tf = k; S.hover = null; savePrefs(); renderAll(); tick(); };
 $('#tfSeg').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (b) setTF(b.dataset.tf); });
 $('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
-[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time']].forEach(([id,k]) => {
+[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr']].forEach(([id,k]) => {
   $(id).addEventListener('change', e => { S.layers[k] = e.target.checked; requestDraw(); });
 });
 $('#pivN').addEventListener('change', e => {
