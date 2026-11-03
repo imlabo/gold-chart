@@ -8,7 +8,7 @@
 |---|---|---|---|
 | Binance PAXG/USDT（初期設定） | 不要 | 金1トロイオンス裏付けのトークン。値動きは金スポットとほぼ同じ（数ドルの差・土日も動く） | 表示中の足は15秒ごと、他の足は5分ごと |
 | Twelve Data | twelvedata.com で無料登録してAPIキーを取得 | 金スポット XAU/USD、ドル円 USD/JPY | 表示中の足は3分ごと、他の足は1時間ごと（無料枠1日800回に収まる設定） |
-| GitHub Actions 経由 Yahoo Finance | 不要 | 日経225先物（CME円建て NIY）、NASDAQ100先物（NQ）、ドル円、金先物（GC） | Actions が5分ごとに取得して `data` ブランチに公開（出来高つき）。ページは1分ごとに確認 |
+| GitHub Actions 経由 Yahoo Finance | 不要 | 日経225先物（CME円建て NIY・ドル建て NKD）、日経平均現物（^N225）、NASDAQ100先物（NQ）、ドル円、金先物（GC） | Actions が5分ごとに取得して `data` ブランチに公開（出来高つき）。ページは1分ごとに確認 |
 
 ブラウザから Yahoo Finance には直接アクセスできないため、`.github/workflows/data.yml` が3時間ごとにジョブを起こし、そのジョブが `scripts/loop.sh` で5分ごとに `scripts/fetch_yahoo.py` を実行して結果の JSON を `data` ブランチへ force push します（履歴は増えません。GitHub の定期実行は数時間遅れることがあるため、1ジョブ内でループする方式にしています）。自分のリポジトリで動かす場合は `index.html` 内の `GH_RAW` を自分のユーザー名に書き換えてください。
 

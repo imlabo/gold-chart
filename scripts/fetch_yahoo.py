@@ -9,6 +9,8 @@ import json, os, sys, time, urllib.request, urllib.error, urllib.parse, http.coo
 
 SYMBOLS = {
     "nk":  "NIY=F",   # 日経225先物（CME 円建て、ほぼ24時間）
+    "nkd": "NKD=F",   # 日経225先物（CME ドル建て）
+    "n225": "^N225",  # 日経平均 現物
     "nq":  "NQ=F",    # NASDAQ100先物（CME）
     "jpy": "JPY=X",   # ドル円
     "gc":  "GC=F",    # 金先物（COMEX）
