@@ -232,7 +232,7 @@ details.help p{margin:6px 0}
       <div class="readout" id="readout"></div>
       <canvas id="chart"></canvas>
       <div class="chartfoot">
-        <span>ドラッグで移動・ホイール／ピンチで拡大縮小。点線の縦線は時間論の基本数値、赤の破線は対等数値（AB=CD・AC=CD・AB=BD、下部のブラケットが当てた区間）。</span>
+        <span>ドラッグで移動・ホイール／ピンチで拡大縮小。赤の破線は対等数値の達成日（AB=CD・AC=CD・AB=BD、下部のブラケットが当てた区間）、黄色の点線は AC=CD の D を起点にした基本数値。</span>
         <span class="zoom">
           <button type="button" id="zIn" aria-label="拡大">＋</button>
           <button type="button" id="zOut" aria-label="縮小">−</button>
@@ -1155,17 +1155,16 @@ function draw(){
   // 時間論
   if (S.layers.time && W2){
     ctx.font = `10px ${C.num}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const origins = [[W2.C, C.time, 1], [W2.B, C.mute, .55]];
-    for (const [o, col, a] of origins){
-      ctx.globalAlpha = a;
+    // AC=CD の D を起点にした基本数値（9・17・26・33・42・65・76・129・172）
+    const dAC = W2.taito.find(t => t.key === 'ACCD');
+    if (dAC){
       for (const k of KIHON){
-        const x = X(o.i + k); if (x < 0 || x > pw) continue;
-        ctx.strokeStyle = col; ctx.setLineDash([2,4]); ctx.lineWidth = 1;
+        const x = X(dAC.d + k); if (x < 0 || x > pw) continue;
+        ctx.strokeStyle = C.time; ctx.setLineDash([2,4]); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(Math.round(x)+.5, 0); ctx.lineTo(Math.round(x)+.5, ph); ctx.stroke();
-        ctx.setLineDash([]); ctx.fillStyle = col; ctx.fillText(String(k), x, 4 + (o===W2.B ? 13 : 0));
+        ctx.setLineDash([]); ctx.fillStyle = C.time; ctx.fillText(`D+${k}`, x, 4);
       }
     }
-    ctx.globalAlpha = 1;
     // 対等数値の三つの型：縦線（D）と、どの区間を当てたかを示す下部のブラケット
     const yb = ph - 8;
     const dashes = {ABCD:[6,4], ACCD:[10,4], ABBD:[2,3]};
@@ -1177,7 +1176,7 @@ function draw(){
       if (x >= 0 && x <= pw){
         ctx.setLineDash(dashes[t.key]); ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = C.taito; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
-        ctx.fillText(`${t.name} ${t.bars}`, x, yy - 3);
+        ctx.fillText(`${t.name} ${fmtT(tAt(t.d), m, true)}`, x, yy - 3);
         ctx.textBaseline = 'top';
       }
       // 元の区間（A→B または A→C）と、当てた区間（起点→D）を同じ高さに細い線で示す
@@ -1598,12 +1597,17 @@ function renderWave(){
       `<table class="tg2"><thead><tr><th>${W.up?'上値':'下値'}目標</th><th>値</th><th>現在値から</th></tr></thead><tbody>${rows}</tbody></table>`;
 
     const legs = W.legs.map(g => `<tr><td>${g.diff>0?'上げ':'下げ'}</td><td class="num">${g.bars}本${g.hit?` <span class="hit">≒${g.hit}</span>`:''}</td><td class="num ${g.diff>0?'up-t':'dn-t'}">${g.diff>0?'+':''}${fmt(g.diff)}</td></tr>`).join('');
-    const nextList = KIHON.filter(k => k > W.elapsed).slice(0,3).map(k => `${k}本目（あと${k-W.elapsed}本）`).join('、');
+    const tAtI = i => { if (i <= L) return R.S.t[Math.max(0,i)]; if (m >= 40000){ const d = new Date(R.S.t[L]); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (i-L), 1); } return R.S.t[L] + (i-L)*m*60000; };
+    const dAC = W.taito.find(t => t.key === 'ACCD');
+    const fromD = L - dAC.d;   // AC=CD の D からの経過本数（Dが未来なら負）
+    const kihonRows = KIHON.map(k => { const i = dAC.d + k; const diff = i - L; return `<tr class="${diff===0?'hit':''}"><td>D+${k}</td><td class="num">${fmtT(tAtI(i), m, true)}</td><td class="num ${diff>0?'':'mu'}">${rel(diff)}</td></tr>`; }).join('');
     te.innerHTML =
-      `<dl class="kv"><dt>起点</dt><dd>直近の${W.up?'谷':'山'} C（${fmtT(R.S.t[W.C.i], m, true)}）</dd>` +
-      `<dt>経過</dt><dd class="num"><b>${W.elapsed}本</b>${KIHON.includes(W.elapsed)?' <span class="hit">基本数値に一致</span>':''}</dd>` +
-      `<dt>次の基本数値</dt><dd>${nextList || '172本を超えています'}</dd>` +
-      `<dt>対等数値</dt><dd>${W.taito.map(t => `<b>${t.name}</b>：${t.desc} → D は ${t.from} から${t.bars}本目（${rel(t.d-L)}${t.d <= L ? '' : '・' + fmtT(R.S.t[L] + (t.d-L)*m*60000, m, true)}）`).join('<br>')}</dd></dl>` +
+      `<dl class="kv"><dt>A・B・C</dt><dd class="num">A ${fmtT(R.S.t[W.A.i], m, true)}　B ${fmtT(R.S.t[W.B.i], m, true)}　C ${fmtT(R.S.t[W.C.i], m, true)}</dd></dl>` +
+      `<table class="tg2"><thead><tr><th>対等数値の達成日</th><th>日時</th><th>現在から</th></tr></thead><tbody>` +
+      W.taito.map(t => `<tr><td><b>${t.name}</b><div class="mu" style="font-size:.68rem">${t.desc}（${t.bars}本）</div></td><td class="num">${fmtT(tAtI(t.d), m, true)}</td><td class="num ${t.d>L?'':'mu'}">${rel(t.d-L)}</td></tr>`).join('') +
+      `</tbody></table>` +
+      `<div style="font-size:.78rem;margin-top:8px">AC=CD の D（${fmtT(tAtI(dAC.d), m, true)}）を起点にした基本数値${fromD >= 0 ? `　<span class="num">Dから${fromD}本経過${KIHON.includes(fromD) ? ' <span class="hit">基本数値に一致</span>' : ''}</span>` : ''}</div>` +
+      `<table class="tg2"><thead><tr><th>基本数値</th><th>日時</th><th>現在から</th></tr></thead><tbody>${kihonRows}</tbody></table>` +
       `<table class="tg2"><thead><tr><th>直近の波</th><th>日柄</th><th>値幅</th></tr></thead><tbody>${legs}</tbody></table>`;
   }
   const lv = LEVELS.map(p => {
