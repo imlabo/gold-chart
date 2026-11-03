@@ -10,7 +10,7 @@
 | Twelve Data | twelvedata.com で無料登録してAPIキーを取得 | 金スポット XAU/USD、ドル円 USD/JPY | 表示中の足は3分ごと、他の足は1時間ごと（無料枠1日800回に収まる設定） |
 | GitHub Actions 経由 Yahoo Finance | 不要 | 日経225先物（CME円建て NIY）、NASDAQ100先物（NQ）、ドル円、金先物（GC） | Actions が5分ごとに取得して `data` ブランチに公開（出来高つき）。ページは1分ごとに確認 |
 
-ブラウザから Yahoo Finance には直接アクセスできないため、`.github/workflows/data.yml` が `scripts/fetch_yahoo.py` を5分ごとに動かし、結果の JSON を `data` ブランチへ force push しています（履歴は増えません）。自分のリポジトリで動かす場合は `index.html` 内の `GH_RAW` を自分のユーザー名に書き換えてください。
+ブラウザから Yahoo Finance には直接アクセスできないため、`.github/workflows/data.yml` が3時間ごとにジョブを起こし、そのジョブが `scripts/loop.sh` で5分ごとに `scripts/fetch_yahoo.py` を実行して結果の JSON を `data` ブランチへ force push します（履歴は増えません。GitHub の定期実行は数時間遅れることがあるため、1ジョブ内でループする方式にしています）。自分のリポジトリで動かす場合は `index.html` 内の `GH_RAW` を自分のユーザー名に書き換えてください。
 
 画面上部の「データ元」で切り替えます。APIキーはブラウザ内にだけ保存されます。
 
