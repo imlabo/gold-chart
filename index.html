@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>一目マルチチャート</title>
+<title>マルチチャート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Shippori+Mincho+B1:wght@700&display=swap">
@@ -189,7 +189,7 @@ details.help p{margin:6px 0}
 <div class="app">
   <header class="top">
     <div class="brand">
-      <h1 id="h1">GOLD 一目チャート</h1>
+      <h1 id="h1">GOLD チャート</h1>
       <span class="sym" id="sym">XAU/USD</span>
     </div>
     <div class="quote">
@@ -217,11 +217,12 @@ details.help p{margin:6px 0}
     <div class="seg" id="tfSeg" role="group" aria-label="時間足"></div>
     <div class="toggles" id="layers">
       <label class="tg"><input type="checkbox" id="lyMa" checked><i style="background:var(--ma20)"></i>移動平均</label>
-      <label class="tg"><input type="checkbox" id="lyIchi" checked><i style="background:var(--kijun)"></i>一目均衡表</label>
+      <label class="tg"><input type="checkbox" id="lyIchi" checked><i style="background:var(--kijun)"></i>均衡表（転換・基準・雲・遅行）</label>
       <label class="tg"><input type="checkbox" id="lyWave" checked><i style="background:var(--zig)"></i>波動</label>
       <label class="tg"><input type="checkbox" id="lyTgt" checked><i style="background:var(--gold)"></i>値幅観測</label>
       <label class="tg"><input type="checkbox" id="lyTime" checked><i style="background:var(--time)"></i>時間論</label>
       <label class="tg"><input type="checkbox" id="lySR" checked><i style="background:var(--ink)"></i>支持・抵抗</label>
+      <label class="tg"><input type="checkbox" id="lyVol" checked><i style="background:var(--mute)"></i>出来高</label>
     </div>
     <label class="ctl" for="pivN">山・谷の判定本数<input type="number" id="pivN" min="2" max="30" value="5"></label>
   </div>
@@ -302,6 +303,7 @@ details.help p{margin:6px 0}
           <summary>データ元と見方</summary>
           <p><b>ゴールド</b>：Binance PAXG は登録不要で15秒ごとに自動更新します（金1トロイオンス裏付けのトークンで、値動きは金スポットとほぼ同じ。数ドルのずれと土日の値動きあり）。Twelve Data XAU/USD は金スポットそのもので、twelvedata.com の無料APIキーが必要です（1日800回・1分8回の枠に収まるよう、表示中の足を3分ごと、他の足を1時間ごとに更新）。</p>
           <p><b>日経225先物・NASDAQ100先物・ドル円・金先物</b>：ブラウザから直接は取れないため、このサイトの GitHub Actions が5分ごとに Yahoo Finance から四本値を取得して公開しています（日経225先物は CME 円建て NIY、NASDAQ は NQ、金先物は COMEX GC）。表示は約5分遅れで、1分足は直近7日分、5分足は7日、15分足は30日、1時間足は120日、日足は5年分から直近1,000本。4時間足は1時間足から合成します。ドル円は Twelve Data の無料キーでも取れます。</p>
+          <p>出来高はデータ元にあるときだけ下段に表示します（Binance、先物、株価指数）。ドル円など為替には出来高がありません。週足は月曜始まり、月足は月初で区切ります。</p>
           <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
           <p>支持線・抵抗線の主役は<b>お椀の水平線</b>です。日足・4時間・1時間で、過去のトレンドの起点（戻り売り・押し目買いの起点）から大きく離れたあと価格が全戻ししてきた価格を探し、深く・大きく・初回の戻りほど強くします。1分足・5分足の小さなお椀は使いません。二重線で描き、○がその起点です。</p>
           <p>水平線の近くに<b>移動平均線</b>（特に20と210、各時間足）があると大きく加点し、別の時間足のMAが2本以上重なればさらに加点します（右端の◆印）。ほかに三尊・逆三尊のネックライン候補、はっきりした一波の半値戻し、4時間足以上の大きなローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、基準線・先行スパン2の横ばい、$50・$100の節目を集め、近い価格をまとめて点数化します。その後に何度も抜けた価格は減点、直前にスラストがある側の水平線は警戒表示です。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
@@ -324,7 +326,9 @@ const TFS = [
   {k:'15', m:15,   label:'15分'},
   {k:'60', m:60,   label:'1時間'},
   {k:'240',m:240,  label:'4時間'},
-  {k:'D',  m:1440, label:'日足'}
+  {k:'D',  m:1440, label:'日足'},
+  {k:'W',  m:10080, label:'週足'},
+  {k:'M',  m:43200, label:'月足'}
 ];
 const TF = {}; TFS.forEach(x => TF[x.k] = x);
 const KIHON  = [9,17,26,33,42,65,76,129,172];
@@ -336,8 +340,8 @@ const PREFS = 'gold-ichimoku-chart-prefs-v1';
 /* ===================== 状態 ===================== */
 const S = {
   sym:'gold', tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
-  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true}, sr:null, rx:null,
-  piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3},
+  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true, vol:true}, sr:null, rx:null,
+  piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3,'W':3,'M':2},
   off3:0, off9:0, hover:null, waveMode:'auto', manual:{}, placing:null, dragPt:null
 };
 
@@ -350,10 +354,12 @@ const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 function fmtT(t, m, short){
   const d = new Date(t);
   const Y=d.getFullYear(), Mo=pad(d.getMonth()+1), Da=pad(d.getDate()), H=pad(d.getHours()), Mi=pad(d.getMinutes());
+  if (m >= 40000) return short ? `${Y%100}/${Mo}` : `${Y}/${Mo}`;
   if (m >= 1440) return short ? `${Y%100}/${Mo}/${Da}` : `${Y}/${Mo}/${Da}`;
   return short ? `${Mo}/${Da} ${H}:${Mi}` : `${Y}/${Mo}/${Da} ${H}:${Mi}`;
 }
 const cls = v => v > 0 ? 'up' : v < 0 ? 'dn' : 'neu';
+const fmtVol = v => !Number.isFinite(v) ? '—' : v >= 1e9 ? (v/1e9).toFixed(2)+'B' : v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e4 ? (v/1e3).toFixed(1)+'K' : String(Math.round(v));
 function tokens(){
   const cs = getComputedStyle(document.documentElement);
   const g = n => cs.getPropertyValue(n).trim();
@@ -368,12 +374,19 @@ function tokens(){
 }
 
 /* ===================== 足の合成 ===================== */
+function bucketOf(t, mins){
+  if (mins >= 40000){ const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1); }           // 月：UTCの月初
+  if (mins >= 10000){ const day = Math.floor(t/86400000); return (day - ((day + 3) % 7)) * 86400000; }              // 週：月曜始まり
+  if (mins >= 1440) return Math.floor(t/86400000)*86400000;
+  return Math.floor(t/(mins*60000))*(mins*60000);
+}
 function resample(s, mins){
-  const out = {t:[],o:[],h:[],l:[],c:[]}; const span = mins*60000; let cur = null;
+  const out = {t:[],o:[],h:[],l:[],c:[],v:[]}; let cur = null;
+  const hasV = Array.isArray(s.v);
   for (let i=0;i<s.t.length;i++){
-    const b = mins >= 1440 ? Math.floor(s.t[i]/86400000)*86400000 : Math.floor(s.t[i]/span)*span;
-    if (b !== cur){ out.t.push(b); out.o.push(s.o[i]); out.h.push(s.h[i]); out.l.push(s.l[i]); out.c.push(s.c[i]); cur = b; }
-    else { const j = out.t.length-1; if (s.h[i]>out.h[j]) out.h[j]=s.h[i]; if (s.l[i]<out.l[j]) out.l[j]=s.l[i]; out.c[j]=s.c[i]; }
+    const b = bucketOf(s.t[i], mins);
+    if (b !== cur){ out.t.push(b); out.o.push(s.o[i]); out.h.push(s.h[i]); out.l.push(s.l[i]); out.c.push(s.c[i]); out.v.push(hasV ? (s.v[i]||0) : 0); cur = b; }
+    else { const j = out.t.length-1; if (s.h[i]>out.h[j]) out.h[j]=s.h[i]; if (s.l[i]<out.l[j]) out.l[j]=s.l[i]; out.c[j]=s.c[i]; if (hasV) out.v[j] += (s.v[i]||0); }
   }
   return out;
 }
@@ -418,7 +431,8 @@ function stateAt(R, i){
   if (i-OFF >= 0) ck = c[i] > h[i-OFF] ? 1 : c[i] < l[i-OFF] ? -1 : 0;
   const sy = (tk===1&&cp===1&&ck===1) ? 1 : (tk===-1&&cp===-1&&ck===-1) ? -1 : 0;
   const kd = (i>0 && Number.isFinite(R.kij[i-1])) ? sgn(R.kij[i]-R.kij[i-1]) : 0;
-  return {po, cp, tk, ck, sy, kd, kij:R.kij[i], ten:R.ten[i], close:c[i], cTop, cBot, enough: maOk && Number.isFinite(cTop)};
+  // 月足など本数が少ない足では、210本MAが無くても雲と20本MAがあれば判定する
+  return {po, cp, tk, ck, sy, kd, kij:R.kij[i], ten:R.ten[i], close:c[i], cTop, cBot, enough: Number.isFinite(a[1]) && Number.isFinite(cTop), maOk};
 }
 function pivots(h, l, k){
   const n = h.length, P = [];
@@ -537,15 +551,15 @@ function clearManual(){ delete S.manual[manualKey()]; recomputeWave(S.tf); saveP
 // GitHub（gh）：このリポジトリの Actions が5分ごとに Yahoo Finance から取得して data ブランチに置いたJSON。
 const GH_RAW = 'https://raw.githubusercontent.com/imlabo/gold-chart/data/';
 const SYM = {
-  gold:{name:'GOLD 一目チャート', label:'ゴールド', dec:2, round:[100,50], unit:'$', srcs:['binance','twelve','gh'],
+  gold:{name:'GOLD チャート', label:'ゴールド', dec:2, round:[100,50], unit:'$', srcs:['binance','twelve','gh'],
         binance:'PAXGUSDT', twelve:'XAU/USD', gh:'gc',
         srcName:{binance:'Binance PAXG/USDT', twelve:'Twelve Data XAU/USD', gh:'金先物 GC（Yahoo・5分ごと）'},
         symTxt:{binance:'PAXG/USDT（金連動）', twelve:'XAU/USD', gh:'GC=F 金先物'}},
-  nk:  {name:'日経225先物 一目チャート', label:'日経225先物', dec:0, round:[1000,500], unit:'', srcs:['gh'], gh:'nk',
+  nk:  {name:'日経225先物 チャート', label:'日経225先物', dec:0, round:[1000,500], unit:'', srcs:['gh'], gh:'nk',
         srcName:{gh:'日経225先物 NIY（Yahoo・5分ごと）'}, symTxt:{gh:'NIY=F 日経225先物（CME円建て）'}},
-  nq:  {name:'NASDAQ100先物 一目チャート', label:'NASDAQ100先物', dec:2, round:[500,100], unit:'', srcs:['gh'], gh:'nq',
+  nq:  {name:'NASDAQ100先物 チャート', label:'NASDAQ100先物', dec:2, round:[500,100], unit:'', srcs:['gh'], gh:'nq',
         srcName:{gh:'NASDAQ100先物 NQ（Yahoo・5分ごと）'}, symTxt:{gh:'NQ=F NASDAQ100先物'}},
-  jpy: {name:'ドル円 一目チャート', label:'ドル円', dec:3, round:[1,0.5], unit:'', srcs:['gh','twelve'], gh:'jpy', twelve:'USD/JPY',
+  jpy: {name:'ドル円 チャート', label:'ドル円', dec:3, round:[1,0.5], unit:'', srcs:['gh','twelve'], gh:'jpy', twelve:'USD/JPY',
         srcName:{gh:'ドル円 USD/JPY（Yahoo・5分ごと）', twelve:'Twelve Data USD/JPY'}, symTxt:{gh:'USD/JPY', twelve:'USD/JPY'}}
 };
 const SRC = {
@@ -553,8 +567,8 @@ const SRC = {
   twelve: {live:180, other:3600},
   gh:     {live:60,  other:300}
 };
-const BN = {'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d'};
-const TD = {'1':'1min','5':'5min','15':'15min','60':'1h','240':'4h','D':'1day'};
+const BN = {'1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','D':'1d','W':'1w','M':'1M'};
+const TD = {'1':'1min','5':'5min','15':'15min','60':'1h','240':'4h','D':'1day','W':'1week','M':'1month'};
 const BN_HOSTS = ['https://data-api.binance.vision', 'https://api.binance.com'];
 const srcLabel = () => SYM[S.sym].srcName[S.src] || S.src;
 
@@ -566,7 +580,8 @@ async function getJSON(url, ms){
     return await r.json();
   } finally { clearTimeout(tm); }
 }
-const emptySeries = () => ({t:[],o:[],h:[],l:[],c:[]});
+const emptySeries = () => ({t:[],o:[],h:[],l:[],c:[],v:[]});
+const hasVolume = s => Array.isArray(s.v) && s.v.some(x => x > 0);
 async function fetchBinance(k){
   let last = null;
   for (const host of BN_HOSTS){
@@ -574,7 +589,7 @@ async function fetchBinance(k){
       const j = await getJSON(`${host}/api/v3/klines?symbol=${SYM[S.sym].binance}&interval=${BN[k]}&limit=1000`);
       if (!Array.isArray(j)) throw new Error('想定外の応答');
       const s = emptySeries();
-      for (const r of j){ s.t.push(+r[0]); s.o.push(+r[1]); s.h.push(+r[2]); s.l.push(+r[3]); s.c.push(+r[4]); }
+      for (const r of j){ s.t.push(+r[0]); s.o.push(+r[1]); s.h.push(+r[2]); s.l.push(+r[3]); s.c.push(+r[4]); s.v.push(+r[5] || 0); }
       return s;
     } catch(e){ last = e; }
   }
@@ -588,23 +603,23 @@ async function fetchTwelve(k){
   for (const v of j.values){
     const m = String(v.datetime).match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
     if (!m) continue;
-    rows.push([Date.UTC(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)), +v.open, +v.high, +v.low, +v.close]);
+    rows.push([Date.UTC(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)), +v.open, +v.high, +v.low, +v.close, +(v.volume || 0)]);
   }
   rows.sort((a,b) => a[0]-b[0]);
   const s = emptySeries();
-  for (const r of rows){ if (r.slice(1).every(Number.isFinite)){ s.t.push(r[0]); s.o.push(r[1]); s.h.push(r[2]); s.l.push(r[3]); s.c.push(r[4]); } }
+  for (const r of rows){ if (r.slice(1,5).every(Number.isFinite)){ s.t.push(r[0]); s.o.push(r[1]); s.h.push(r[2]); s.l.push(r[3]); s.c.push(r[4]); s.v.push(Number.isFinite(r[5]) ? r[5] : 0); } }
   return s;
 }
 async function fetchGH(k){
   const key = SYM[S.sym].gh;
-  const file = k === '240' ? '60' : k;                 // 4時間足は1時間足から合成
+  const file = k === '240' ? '60' : k;                 // 4時間足は1時間足から合成（週足・月足は専用ファイル）
   const bust = Math.floor(Date.now()/60000);
   let j;
   try{ j = await getJSON(`${GH_RAW}${key}_${file}.json?v=${bust}`, 15000); }
   catch(e){ throw new Error(e.message === 'HTTP 404' ? 'データ配信がまだ始まっていません（GitHub Actions の初回実行待ち）' : `GitHubのデータを取得できません（${e.message}）`); }
   if (!j || !Array.isArray(j.bars)) throw new Error('データ形式が想定外です');
   const s = emptySeries();
-  for (const b of j.bars){ s.t.push(+b[0]); s.o.push(+b[1]); s.h.push(+b[2]); s.l.push(+b[3]); s.c.push(+b[4]); }
+  for (const b of j.bars){ s.t.push(+b[0]); s.o.push(+b[1]); s.h.push(+b[2]); s.l.push(+b[3]); s.c.push(+b[4]); s.v.push(+b[5] || 0); }
   S.ghUpdated = j.updated || 0;
   return k === '240' ? resample(s, 240) : s;
 }
@@ -694,9 +709,10 @@ function loadPrefs(){
 //     複数の時間足のMAが同じ価格に重なる（例：1時間足210MA と 日足20MA）ならさらに強い。
 //  3. そのほかの根拠：三尊・逆三尊のネックライン、はっきりしたトレンドの半値戻し、
 //     4時間足以上の印象的なローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、
-//     一目の基準線・先行スパン2の横ばい、$50・$100の節目。
+//     基準線・先行スパン2の横ばい、$50・$100の節目。
 //  4. 減点：その後に何度も抜けた価格。警戒：直前にスラスト（小刻みに切り上げて突っ込む動き）がある側の水平線。
 const SR_TF = [
+  {k:'W',   w:4,   piv:3, bowl:7,   label:'週足'},
   {k:'D',   w:3,   piv:3, bowl:6,   label:'日足'},
   {k:'240', w:2,   piv:4, bowl:4,   label:'4時間'},
   {k:'60',  w:1.2, piv:5, bowl:2.5, label:'1時間'},
@@ -704,6 +720,8 @@ const SR_TF = [
 ];
 const SR_SIDE = 4;           // 上下それぞれ最大4本
 const MA_W = {               // MA重なりの重み（時間足 × 期間）
+  'M':  {20:1.5, 210:1.0, 75:0.6, 5:0.2},
+  'W':  {20:1.8, 210:1.4, 75:0.8, 5:0.2},
   'D':  {20:1.6, 210:1.6, 75:0.7, 5:0.2},
   '240':{20:1.3, 210:1.3, 75:0.6, 5:0.15},
   '60': {20:1.1, 210:1.2, 75:0.5, 5:0.1},
@@ -711,7 +729,7 @@ const MA_W = {               // MA重なりの重み（時間足 × 期間）
   '5':  {20:0.6, 210:0.7, 75:0.2, 5:0},
   '1':  {20:0.5, 210:0.7, 75:0.15, 5:0}
 };
-const TFLBL = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間','D':'日足'};
+const TFLBL = {'1':'1分','5':'5分','15':'15分','60':'1時間','240':'4時間','D':'日足','W':'週足','M':'月足'};
 function atrOf(s, n){
   const L = s.t.length-1; if (L < n+1) return NaN;
   let sum = 0; for (let i=L-n+1;i<=L;i++) sum += Math.max(s.h[i]-s.l[i], Math.abs(s.h[i]-s.c[i-1]), Math.abs(s.l[i]-s.c[i-1]));
@@ -805,8 +823,8 @@ function calcSR(){
     }
     // お椀の水平線（日足・4時間・1時間のみ）
     if (f.bowl) for (const b of findBowls(R, f, price, range, tol, now)) cands.push(b);
-    // 一目：基準線・先行スパン2の横ばい
-    if (f.k === 'D' || f.k === '240'){
+    // 均衡表：基準線・先行スパン2の横ばい
+    if (f.k === 'W' || f.k === 'D' || f.k === '240'){
       for (const [arr, nm, mult] of [[R.kij, '基準線', 1.0], [R.spB, '先行スパン2', 1.2]]){
         for (const r of flatRuns(arr, s.t, 9, 400)){
           if (Math.abs(r.p - price) > range) continue;
@@ -871,7 +889,7 @@ function calcSR(){
 
   // 現在のMA（全時間足）
   const mas = [];
-  for (const k of ['D','240','60','15','5','1']){
+  for (const k of ['M','W','D','240','60','15','5','1']){
     const R = S.res[k]; if (!R) continue; const L = R.S.t.length-1;
     for (const per of MA_P){ const v = R.ma[per][L]; const w = (MA_W[k]||{})[per] || 0; if (Number.isFinite(v) && w) mas.push({k, per, v, w}); }
   }
@@ -1043,12 +1061,14 @@ function draw(){
   const R = S.res[S.tf];
   if (!R){ ctx.fillStyle = C.mute; ctx.font = `14px ${C.body}`; ctx.fillText(S.err && !S.fetched[S.tf] ? S.err : '価格を取得しています…', 20, 40); geom = null; return; }
 
-  const AX = W < 520 ? 62 : 74, TB = 22, pw = W-AX, ph = H-TB;
+  const AX = W < 520 ? 62 : 74, TB = 22, pw = W-AX, fullH = H-TB;
+  const showVol = S.layers.vol && hasVolume(R.S);
+  const vh = showVol ? Math.round(fullH*0.17) : 0, ph = fullH - vh;
   const v = S.view[S.tf], L = R.S.t.length-1, m = TF[S.tf].m;
   const bw = pw / v.count;
   const X = i => pw - (v.right - i)*bw - bw/2;
   const i0 = Math.max(0, Math.floor(v.right - v.count) - 1), i1 = Math.ceil(v.right) + 1;
-  const tAt = i => i <= L ? R.S.t[Math.max(0,i)] : R.S.t[L] + (i-L)*m*60000;
+  const tAt = i => { if (i <= L) return R.S.t[Math.max(0,i)]; if (m >= 40000){ const d = new Date(R.S.t[L]); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (i-L), 1); } return R.S.t[L] + (i-L)*m*60000; };
 
   // 価格レンジ
   let lo = Infinity, hi = -Infinity;
@@ -1176,7 +1196,7 @@ function draw(){
     const wd = {5:1, 20:1.5, 75:1.7, 210:2.4};
     MA_P.forEach(p => poly(ctx, i => R.ma[p][i], i0, Math.min(i1,L), C.ma[p], wd[p]));
   }
-  // 一目
+  // 均衡表
   if (S.layers.ichi){
     poly(ctx, i => R.ten[i], i0, Math.min(i1,L), C.tenkan, 1.2);
     poly(ctx, i => R.kij[i], i0, Math.min(i1,L), C.kijun, 1.9);
@@ -1305,31 +1325,58 @@ function draw(){
   ctx.beginPath(); ctx.moveTo(0, Math.round(yl)+.5); ctx.lineTo(pw, Math.round(yl)+.5); ctx.stroke(); ctx.setLineDash([]);
 
   // 軸
-  ctx.fillStyle = C.bg; ctx.fillRect(pw,0,AX,H); ctx.fillRect(0,ph,pw,TB);
-  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(pw+.5,0); ctx.lineTo(pw+.5,H); ctx.moveTo(0,ph+.5); ctx.lineTo(pw,ph+.5); ctx.stroke();
+  // 出来高（下段）
+  if (showVol){
+    const vv = R.S.v; let vmax = 0;
+    for (let i=Math.max(0,i0); i<=Math.min(i1,L); i++) if (vv[i] > vmax) vmax = vv[i];
+    ctx.fillStyle = C.bg; ctx.fillRect(0, ph, pw, vh);
+    ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(0, ph+.5); ctx.lineTo(pw, ph+.5); ctx.stroke();
+    if (vmax > 0){
+      const vY = x => fullH - (x/vmax)*(vh-6);
+      const vw = Math.max(1, Math.min(14, bw*0.68));
+      for (let i=Math.max(0,i0); i<=Math.min(i1,L); i++){
+        const x = X(i), y = vY(vv[i]);
+        ctx.globalAlpha = 0.55; ctx.fillStyle = R.S.c[i] >= R.S.o[i] ? C.up : C.down;
+        ctx.fillRect(x-vw/2, y, vw, fullH-y);
+      }
+      ctx.globalAlpha = 1;
+      // 出来高の20本平均
+      ctx.strokeStyle = C.gold; ctx.lineWidth = 1.2; ctx.beginPath(); let on = false, acc = 0;
+      for (let i=Math.max(0,i0-20); i<=Math.min(i1,L); i++){
+        acc += vv[i]; if (i-20 >= 0) acc -= vv[i-20];
+        if (i >= 19 && i >= i0){ const x = X(i), y = vY(acc/20); on ? ctx.lineTo(x,y) : ctx.moveTo(x,y); on = true; }
+      }
+      ctx.stroke();
+      ctx.font = `10px ${C.num}`; ctx.fillStyle = C.mute; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('出来高 ' + fmtVol(vmax), 6, ph + 3);
+    }
+  }
+
+  // 軸
+  ctx.fillStyle = C.bg; ctx.fillRect(pw,0,AX,H); ctx.fillRect(0,fullH,pw,TB);
+  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(pw+.5,0); ctx.lineTo(pw+.5,H); ctx.moveTo(0,fullH+.5); ctx.lineTo(pw,fullH+.5); ctx.stroke();
   ctx.font = `11px ${C.num}`; ctx.fillStyle = C.mute; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   for (let p = Math.ceil(lo/ps)*ps; p <= hi; p += ps){ const y = Y(p); if (y>8 && y<ph-8) ctx.fillText(fmt(p), pw+6, y); }
   ctx.textAlign = 'center';
   for (let i = Math.ceil(i0/tstep)*tstep; i <= i1; i += tstep){
     const x = X(i); if (x < 30 || x > pw-30) continue;
     ctx.fillStyle = i > L ? C.line : C.mute;
-    ctx.fillText(fmtT(tAt(i), m, true), x, ph + TB/2);
+    ctx.fillText(fmtT(tAt(i), m, true), x, fullH + TB/2);
   }
   tag(ctx, pw, yl, AX, fmt(last), lcol, '#fff', C);
 
   // 十字線
   if (S.hover){
     const hx = S.hover.x, hy = S.hover.y;
-    if (hx >= 0 && hx <= pw && hy >= 0 && hy <= ph){
+    if (hx >= 0 && hx <= pw && hy >= 0 && hy <= fullH){
       const idx = Math.round(v.right - (pw - hx - bw/2)/bw), x = X(idx);
       ctx.strokeStyle = C.cross; ctx.globalAlpha = .45; ctx.setLineDash([3,3]);
-      ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,ph); ctx.moveTo(0,Math.round(hy)+.5); ctx.lineTo(pw,Math.round(hy)+.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,fullH); if (hy <= ph){ ctx.moveTo(0,Math.round(hy)+.5); ctx.lineTo(pw,Math.round(hy)+.5); } ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = 1;
-      const price = lo + (ph-hy)/ph*(hi-lo);
-      tag(ctx, pw, hy, AX, fmt(price), C.ink, C.bg, C);
+      if (hy <= ph){ const price = lo + (ph-hy)/ph*(hi-lo); tag(ctx, pw, hy, AX, fmt(price), C.ink, C.bg, C); }
       const tl = fmtT(tAt(idx), m, false), tw = ctx.measureText(tl).width + 12;
-      ctx.fillStyle = C.ink; ctx.fillRect(clamp(x-tw/2,0,pw-tw), ph+2, tw, TB-4);
-      ctx.fillStyle = C.bg; ctx.textAlign = 'center'; ctx.fillText(tl, clamp(x,tw/2,pw-tw/2), ph+TB/2);
+      ctx.fillStyle = C.ink; ctx.fillRect(clamp(x-tw/2,0,pw-tw), fullH+2, tw, TB-4);
+      ctx.fillStyle = C.bg; ctx.textAlign = 'center'; ctx.fillText(tl, clamp(x,tw/2,pw-tw/2), fullH+TB/2);
     }
   }
   renderReadout();
@@ -1368,6 +1415,7 @@ function renderReadout(){
   el.innerHTML =
     `<span><b>${fmtT(s.t[i], m, false)}</b></span>` +
     `<span>始 <b>${fmt(s.o[i])}</b> 高 <b>${fmt(s.h[i])}</b> 安 <b>${fmt(s.l[i])}</b> 終 <b>${fmt(s.c[i])}</b></span>` +
+    (hasVolume(s) ? `<span>出来高 <b>${fmtVol(s.v[i])}</b></span>` : '') +
     k('--ma5','MA5',R.ma[5][i]) + k('--ma20','MA20',R.ma[20][i]) + k('--ma75','MA75',R.ma[75][i]) + k('--ma210','MA210',R.ma[210][i]) +
     k('--tenkan','転換',R.ten[i]) + k('--kijun','基準',R.kij[i]) +
     `<span class="k"><i style="background:var(--kumo-up-line)"></i>雲 <b>${fmt(Math.min(cA,cB))}–${fmt(Math.max(cA,cB))}</b></span>`;
@@ -1459,7 +1507,7 @@ function renderMTF(){
     const arrow = st.kd>0 ? '↗' : st.kd<0 ? '↘' : '→';
     return `<tr data-tf="${t.k}" class="${t.k===S.tf?'cur':''}">
       <td>${t.label}</td>
-      <td>${chip(st.po, st.po===1?'上昇PO':st.po===-1?'下降PO':'混在')}</td>
+      <td>${st.maOk ? chip(st.po, st.po===1?'上昇PO':st.po===-1?'下降PO':'混在') : '<span class="mu">210本未満</span>'}</td>
       <td>${chip(st.cp, st.cp===1?'雲上':st.cp===-1?'雲下':'雲中')}</td>
       <td>${chip(st.tk, st.tk===1?'転&gt;基':st.tk===-1?'転&lt;基':'同値')}</td>
       <td>${chip(st.ck, st.ck===1?'上':st.ck===-1?'下':'絡')}</td>
@@ -1576,7 +1624,7 @@ function renderAll(){
 const setTF = k => { S.tf = k; S.hover = null; S.placing = null; if (S.waveMode === 'manual'){ seedManual(); recomputeWave(k); } savePrefs(); renderAll(); tick(); };
 $('#tfSeg').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (b) setTF(b.dataset.tf); });
 $('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
-[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr']].forEach(([id,k]) => {
+[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr'],['#lyVol','vol']].forEach(([id,k]) => {
   $(id).addEventListener('change', e => { S.layers[k] = e.target.checked; requestDraw(); });
 });
 $('#pivN').addEventListener('change', e => {

@@ -20,6 +20,8 @@ INTERVALS = {
     "15":  ("15m", "30d"),
     "60":  ("60m", "120d"),
     "D":   ("1d",  "5y"),
+    "W":   ("1wk", "max"),
+    "M":   ("1mo", "max"),
 }
 HOSTS = ["https://query2.finance.yahoo.com", "https://query1.finance.yahoo.com"]
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -84,6 +86,7 @@ def chart(sym, iv, rng):
     ts = r.get("timestamp") or []
     q = ((r.get("indicators") or {}).get("quote") or [{}])[0]
     o, h, l, c = q.get("open") or [], q.get("high") or [], q.get("low") or [], q.get("close") or []
+    vol = q.get("volume") or []
     bars = []
     for i, t in enumerate(ts):
         try:
@@ -93,7 +96,8 @@ def chart(sym, iv, rng):
         if any(v is None for v in vals):
             continue
         oo, hh, ll, cc = (float(v) for v in vals)
-        bars.append([int(t)*1000, round(oo, 4), round(max(hh, oo, cc), 4), round(min(ll, oo, cc), 4), round(cc, 4)])
+        vv = vol[i] if i < len(vol) and vol[i] is not None else 0
+        bars.append([int(t)*1000, round(oo, 4), round(max(hh, oo, cc), 4), round(min(ll, oo, cc), 4), round(cc, 4), int(vv)])
     # 同一時刻の重複を除き、時刻順に
     seen = set(); out = []
     for b in sorted(bars, key=lambda x: x[0]):
