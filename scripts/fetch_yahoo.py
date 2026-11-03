@@ -20,7 +20,7 @@ INTERVALS = {
     "15":  ("15m", "30d"),
     "60":  ("60m", "120d"),
     "D":   ("1d",  "5y"),
-    "W":   ("1wk", "max"),
+    "W":   ("1wk", "10y"),
     "M":   ("1mo", "max"),
 }
 HOSTS = ["https://query2.finance.yahoo.com", "https://query1.finance.yahoo.com"]
