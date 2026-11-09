@@ -14,6 +14,7 @@
   --gold:#9c6c12; --gold-soft:#f1e5c6;
   --up:#13784f; --up-bg:#d8efe3; --down:#b8342b; --down-bg:#f6dcd8; --neu:#6c746f; --neu-bg:#e4e7e3;
   --ma5:#d29d00; --ma20:#df6417; --ma75:#0f84a6; --ma210:#7a3db3;
+  --s20:#df6417; --e20:#0b8fa3; --s200:#7a3db3; --e200:#a2569e;
   --tenkan:#d1336b; --kijun:#2a57c2; --chikou:#3a8c3e;
   --kumo-up:rgba(19,120,79,.14); --kumo-dn:rgba(184,52,43,.13);
   --kumo-up-line:rgba(19,120,79,.55); --kumo-dn-line:rgba(184,52,43,.5);
@@ -28,6 +29,7 @@
     --gold:#d9a441; --gold-soft:#2f2717;
     --up:#34c286; --up-bg:#123527; --down:#f0645a; --down-bg:#3a1a17; --neu:#9aa39e; --neu-bg:#232927;
     --ma5:#f2c331; --ma20:#ff8b3e; --ma75:#38b7d8; --ma210:#b47ee8;
+  --s20:#ff8b3e; --e20:#3cc8e0; --s200:#b47ee8; --e200:#e08ad6;
     --tenkan:#ff5f95; --kijun:#6590ff; --chikou:#71c475;
     --kumo-up:rgba(52,194,134,.13); --kumo-dn:rgba(240,100,90,.12);
     --kumo-up-line:rgba(52,194,134,.5); --kumo-dn-line:rgba(240,100,90,.48);
@@ -40,6 +42,7 @@
   --gold:#d9a441; --gold-soft:#2f2717;
   --up:#34c286; --up-bg:#123527; --down:#f0645a; --down-bg:#3a1a17; --neu:#9aa39e; --neu-bg:#232927;
   --ma5:#f2c331; --ma20:#ff8b3e; --ma75:#38b7d8; --ma210:#b47ee8;
+  --s20:#ff8b3e; --e20:#3cc8e0; --s200:#b47ee8; --e200:#e08ad6;
   --tenkan:#ff5f95; --kijun:#6590ff; --chikou:#71c475;
   --kumo-up:rgba(52,194,134,.13); --kumo-dn:rgba(240,100,90,.12);
   --kumo-up-line:rgba(52,194,134,.5); --kumo-dn-line:rgba(240,100,90,.48);
@@ -178,6 +181,17 @@ table.tg2 td:first-child,table.tg2 th:first-child{text-align:left}
 .tg2.neck,.tg2.half,.tg2.open{color:var(--mute)}
 .rxline{margin-top:3px;color:var(--ink)}
 .warnbox{background:var(--down-bg);color:var(--down);border-radius:5px;padding:7px 10px;font-size:.76rem;margin-bottom:8px}
+table.n4{width:100%;border-collapse:collapse;font-size:.74rem;font-variant-numeric:tabular-nums}
+table.n4 th{font-weight:700;color:var(--mute);padding:4px 2px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+table.n4 td{padding:5px 2px;text-align:center;border-bottom:1px solid var(--grid);white-space:nowrap}
+table.n4 tr[data-tf]{cursor:pointer} table.n4 tr[data-tf]:hover td{background:var(--grid)}
+table.n4 tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+.n4sub{font-size:.72rem;font-weight:700;color:var(--mute);letter-spacing:.08em;margin:12px 0 5px}
+ul.n4chk{list-style:none;margin:0;padding:0;font-size:.78rem;display:grid;gap:4px}
+ul.n4chk li{display:flex;gap:7px;align-items:flex-start;line-height:1.45}
+ul.n4chk .mk{flex:none;width:1.3em;text-align:center;font-weight:700}
+.rk{display:inline-block;min-width:1.7em;text-align:center;font-weight:700;border-radius:4px;padding:0 4px;font-family:var(--f-num)}
+.rk.S{background:var(--gold);color:#fff} .rk.A{background:var(--gold-soft);color:var(--gold)} .rk.B{background:var(--neu-bg);color:var(--neu)}
 .nowbox{background:var(--grid);border-radius:5px;padding:7px 10px;font-size:.76rem;margin-top:8px;line-height:1.5}
 details.help{font-size:.8rem;color:var(--mute)}
 details.help summary{cursor:pointer;color:var(--ink);font-weight:700}
@@ -216,7 +230,8 @@ details.help p{margin:6px 0}
   <div class="toolbar">
     <div class="seg" id="tfSeg" role="group" aria-label="時間足"></div>
     <div class="toggles" id="layers">
-      <label class="tg"><input type="checkbox" id="lyMa" checked><i style="background:var(--ma20)"></i>移動平均</label>
+      <label class="tg"><input type="checkbox" id="lyN4" checked><i style="background:linear-gradient(90deg,var(--s20) 50%,var(--e20) 50%)"></i>4本MA（20/200 SMA・EMA）</label>
+      <label class="tg"><input type="checkbox" id="lyMa"><i style="background:var(--ma75)"></i>移動平均 5/20/75/210</label>
       <label class="tg"><input type="checkbox" id="lyIchi" checked><i style="background:var(--kijun)"></i>均衡表（転換・基準・雲・遅行）</label>
       <label class="tg"><input type="checkbox" id="lyWave" checked><i style="background:var(--zig)"></i>波動</label>
       <label class="tg"><input type="checkbox" id="lyTgt" checked><i style="background:var(--gold)"></i>値幅観測</label>
@@ -243,6 +258,11 @@ details.help p{margin:6px 0}
 
     <aside class="rail">
       <div class="verdict neu" id="verdict"><span class="v">—</span><span class="d"></span></div>
+
+      <section class="card">
+        <h2>4本MA判定（20SMA・20EMA・200SMA・200EMA）</h2>
+        <div id="n4Box"><span class="mu">取得しています…</span></div>
+      </section>
 
       <section class="card">
         <h2>時間足ごとの判定</h2>
@@ -307,6 +327,7 @@ details.help p{margin:6px 0}
           <p>時刻はお使いの端末の時刻（ベトナムならUTC+7）で表示します。日足・三日足・九週足の区切りはデータ元に合わせてUTC 0時です。各時間足で直近1,000本を取得し、210本移動平均と雲もその中で計算します。</p>
           <p>支持線・抵抗線の主役は<b>お椀の水平線</b>です。日足・4時間・1時間で、過去のトレンドの起点（戻り売り・押し目買いの起点）から大きく離れたあと価格が全戻ししてきた価格を探し、深く・大きく・初回の戻りほど強くします。1分足・5分足の小さなお椀は使いません。二重線で描き、○がその起点です。</p>
           <p>水平線の近くに<b>移動平均線</b>（特に20と210、各時間足）があると大きく加点し、別の時間足のMAが2本以上重なればさらに加点します（右端の◆印）。ほかに三尊・逆三尊のネックライン候補、はっきりした一波の半値戻し、4時間足以上の大きなローソク足の四本値、進行中の日足の始値（陰線にさせまいの攻防）、基準線・先行スパン2の横ばい、$50・$100の節目を集め、近い価格をまとめて点数化します。その後に何度も抜けた価格は減点、直前にスラストがある側の水平線は警戒表示です。現在値の上下それぞれ最大4本を、強い順に濃く太く描きます。</p>
+          <p><b>4本MA判定</b>は、note「4本の移動平均線でGOLDを読む」の判断をそのまま表にしたものです。20SMAの向きは「今の終値と20本前の終値」、20EMAの向きは「今の終値と1本前の20EMA」で決まるため、反発・反落ではEMAが先、SMAが後に向きを変えます。20EMAだけが向きを変えた状態を第1段階（初動）、20SMAが横ばい〜同じ向きになり始めた状態を第2段階（移行）、2本とも同じ向きを第3段階（継続）とし、直近30本で2本が3回以上交差して20SMAが寝ていればレンジとしてMA判定を休みます。チャート上の点線「20SMA分岐」は次の足で抜ける20本前の終値で、次の終値がこれより上なら20SMAは上向き、下なら下向きです。200SMAと200EMAは壁として扱い、4時間足・日足の2本の間の帯に支持線・抵抗線が重なっていればA、さらに2本が接近していればS、重なりがなければBです。</p>
           <p>1分足（なければ5分足）では、水平線に触れたときの反応を印で示します。★＝直近にない長さの足・ヒゲ（反発のシンボル）、◆＝接触後の20MA割れ（抜け）確定、✕＝高値安値更新フェイク。欄外には最寄りの水平線までの距離と、20MAから大きく乖離して接触した型①／水平線と20MAにサンドイッチされた型②の判定を出します。</p>
           <p>雲は26本先にずらして描き、遅行スパンは26本前に描いています。三役は「転換線が基準線より上」「価格が雲の上」「遅行スパンが26本前のローソク足より上」の3つがそろった状態です。</p>
         </details>
@@ -340,7 +361,7 @@ const PREFS = 'gold-ichimoku-chart-prefs-v1';
 /* ===================== 状態 ===================== */
 const S = {
   sym:'gold', tf:'60', src:'binance', key:'', series:{}, res:{}, view:{}, fetched:{}, err:'', lastAt:0,
-  layers:{ma:true, ichi:true, wave:true, tgt:true, time:true, sr:true, vol:true}, sr:null, rx:null,
+  layers:{n4:true, ma:false, ichi:true, wave:true, tgt:true, time:true, sr:true, vol:true}, sr:null, rx:null,
   piv:{'1':8,'5':6,'15':5,'60':5,'240':4,'D':3,'W':3,'M':2},
   off3:0, off9:0, hover:null, waveMode:'auto', manual:{}, placing:null, dragPt:null
 };
@@ -367,6 +388,7 @@ function tokens(){
     bg:g('--panel'), ink:g('--ink'), mute:g('--mute'), line:g('--line'), grid:g('--grid'), gold:g('--gold'),
     up:g('--up'), down:g('--down'), ma:{5:g('--ma5'),20:g('--ma20'),75:g('--ma75'),210:g('--ma210')},
     tenkan:g('--tenkan'), kijun:g('--kijun'), chikou:g('--chikou'),
+    s20:g('--s20'), e20:g('--e20'), s200:g('--s200'), e200:g('--e200'),
     kumoUp:g('--kumo-up'), kumoDn:g('--kumo-dn'), kumoUpL:g('--kumo-up-line'), kumoDnL:g('--kumo-dn-line'),
     time:g('--time'), taito:g('--taito'), zig:g('--zig'), cross:g('--cross'),
     num:g('--f-num') || 'monospace', body:g('--f-body') || 'sans-serif'
@@ -409,6 +431,11 @@ function calc(src, k){
     return r; };
   const R = {S:src, ma:{}, piv:[]};
   MA_P.forEach(p => R.ma[p] = sma(p));
+  // 4本MA：20SMA・20EMA・200SMA・200EMA（EMAは最初のp本をSMAで初期化）
+  const ema = p => { const r = new Array(n).fill(NaN), a = 2/(p+1); let s=0;
+    for (let i=0;i<n;i++){ if (i<p){ s+=c[i]; if (i===p-1) r[i]=s/p; } else r[i] = r[i-1] + a*(c[i]-r[i-1]); }
+    return r; };
+  R.n4 = {s20:sma(20), e20:ema(20), s200:sma(200), e200:ema(200)};
   R.ten = mid(9); R.kij = mid(26); R.spB = mid(52);
   R.spA = R.ten.map((v,i) => (v + R.kij[i]) / 2);
   R.sy = new Int8Array(n);
@@ -1080,6 +1107,7 @@ function draw(){
   for (let i=i0;i<=Math.min(i1,L);i++){
     inc(R.S.h[i]); inc(R.S.l[i]);
     if (S.layers.ma) MA_P.forEach(p => inc(R.ma[p][i]));
+    if (S.layers.n4){ inc(R.n4.s20[i]); inc(R.n4.e20[i]); inc(R.n4.s200[i]); inc(R.n4.e200[i]); }
     if (S.layers.ichi){ inc(R.ten[i]); inc(R.kij[i]); }
   }
   if (S.layers.ichi) for (let i=Math.max(i0,OFF); i<=Math.min(i1, L+OFF); i++){ inc(R.spA[i-OFF]); inc(R.spB[i-OFF]); }
@@ -1198,6 +1226,26 @@ function draw(){
   if (S.layers.ma){
     const wd = {5:1, 20:1.5, 75:1.7, 210:2.4};
     MA_P.forEach(p => poly(ctx, i => R.ma[p][i], i0, Math.min(i1,L), C.ma[p], wd[p]));
+  }
+  // 4本MA（note：EMAが先、SMAが後。200は壁）
+  if (S.layers.n4){
+    const b = Math.min(i1,L), N = R.n4;
+    ctx.save(); ctx.setLineDash([7,4]); polyD(ctx, i => N.e200[i], i0, b, C.e200, 2.2); ctx.restore();
+    poly(ctx, i => N.s200[i], i0, b, C.s200, 2.6);
+    poly(ctx, i => N.s20[i], i0, b, C.s20, 1.8);
+    poly(ctx, i => N.e20[i], i0, b, C.e20, 1.6);
+    // 20SMAの分岐価格：次の足の終値がこれより上なら20SMAは上向き（20本前の終値が抜けるため）
+    const j = L-19;
+    if (j >= 0 && j <= i1){
+      const yv = Y(R.S.c[j]);
+      if (yv > 6 && yv < ph-6){
+        ctx.save(); ctx.strokeStyle = C.s20; ctx.lineWidth = 1; ctx.setLineDash([2,3]); ctx.globalAlpha = .9;
+        ctx.beginPath(); ctx.moveTo(Math.max(0, X(j)), yv); ctx.lineTo(pw, yv); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = C.s20; ctx.beginPath(); ctx.arc(X(j), yv, 3.2, 0, Math.PI*2); ctx.fill();
+        ctx.font = `600 10px ${C.num}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+        ctx.fillText(`20SMA分岐 ${fmt(R.S.c[j])}`, pw-4, yv-2); ctx.restore();
+      }
+    }
   }
   // 均衡表
   if (S.layers.ichi){
@@ -1395,6 +1443,17 @@ function poly(ctx, f, a, b, col, w){
   }
   ctx.stroke();
 }
+function polyD(ctx, f, a, b, col, w){
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
+  let on = false;
+  for (let i=a;i<=b;i++){
+    const val = f(i);
+    if (!Number.isFinite(val)){ on = false; continue; }
+    const x = geom.X(i), y = geom.Y(val);
+    on ? ctx.lineTo(x,y) : ctx.moveTo(x,y); on = true;
+  }
+  ctx.stroke();
+}
 function tri(ctx, x, y, dir, col){
   ctx.fillStyle = col; ctx.beginPath();
   ctx.moveTo(x, y - 5*dir); ctx.lineTo(x-5, y + 4*dir); ctx.lineTo(x+5, y + 4*dir); ctx.closePath(); ctx.fill();
@@ -1419,7 +1478,8 @@ function renderReadout(){
     `<span><b>${fmtT(s.t[i], m, false)}</b></span>` +
     `<span>始 <b>${fmt(s.o[i])}</b> 高 <b>${fmt(s.h[i])}</b> 安 <b>${fmt(s.l[i])}</b> 終 <b>${fmt(s.c[i])}</b></span>` +
     (hasVolume(s) ? `<span>出来高 <b>${fmtVol(s.v[i])}</b></span>` : '') +
-    k('--ma5','MA5',R.ma[5][i]) + k('--ma20','MA20',R.ma[20][i]) + k('--ma75','MA75',R.ma[75][i]) + k('--ma210','MA210',R.ma[210][i]) +
+    (S.layers.n4 ? k('--s20','20SMA',R.n4.s20[i]) + k('--e20','20EMA',R.n4.e20[i]) + k('--s200','200SMA',R.n4.s200[i]) + k('--e200','200EMA',R.n4.e200[i]) : '') +
+    (S.layers.ma ? k('--ma5','MA5',R.ma[5][i]) + k('--ma20','MA20',R.ma[20][i]) + k('--ma75','MA75',R.ma[75][i]) + k('--ma210','MA210',R.ma[210][i]) : '') +
     k('--tenkan','転換',R.ten[i]) + k('--kijun','基準',R.kij[i]) +
     `<span class="k"><i style="background:var(--kumo-up-line)"></i>雲 <b>${fmt(Math.min(cA,cB))}–${fmt(Math.max(cA,cB))}</b></span>`;
 }
@@ -1494,6 +1554,127 @@ function renderFeed(){
   el.dataset.state = st;
   $('#feedTxt').textContent = txt;
 }
+/* ===================== 4本MA判定（note「4本の移動平均線でGOLDを読む」） ===================== */
+// 20SMAの向き＝今の終値と20本前の終値の比較。20EMAの向き＝今の終値と1本前のEMAの比較。
+// 向きの組み合わせから「初動（第1段階）→移行（第2段階）→継続（第3段階）」を判定する。
+function n4State(R){
+  if (!R || !R.n4) return null;
+  const s = R.S, c = s.c, L = s.t.length-1, N = R.n4;
+  if (L < 30 || !Number.isFinite(N.s20[L-1]) || !Number.isFinite(N.e20[L-1])) return null;
+  let atr = atrOf(s, 14); if (!Number.isFinite(atr) || atr <= 0) atr = Math.abs(s.h[L]-s.l[L]) || c[L]*0.002;
+  const flat = atr*0.015;
+  const dir = a => { const x = a[L]-a[L-1]; return Math.abs(x) < flat ? 0 : sgn(x); };
+  const eD = dir(N.e20), sD = dir(N.s20), e = N.e20[L], m = N.s20[L], px = c[L];
+  let sd = 0, st = 0;
+  if (eD > 0 && sD > 0 && e > m){ sd = 1; st = 3; }
+  else if (eD > 0 && sD >= 0 && px > m){ sd = 1; st = 2; }
+  else if (eD > 0 && sD < 0){ sd = 1; st = 1; }
+  else if (eD < 0 && sD < 0 && e < m){ sd = -1; st = 3; }
+  else if (eD < 0 && sD <= 0 && px < m){ sd = -1; st = 2; }
+  else if (eD < 0 && sD > 0){ sd = -1; st = 1; }
+  // 直近30本の20EMA×20SMAの交差回数（多い＝レンジ）
+  let cross = 0, prev = 0;
+  for (let i=Math.max(1, L-29); i<=L; i++){ const d = sgn(N.e20[i]-N.s20[i]); if (d && prev && d !== prev) cross++; if (d) prev = d; }
+  const range = cross >= 3 && Math.abs(N.s20[L]-N.s20[Math.max(0,L-10)]) < atr*0.8;
+  const gap = Math.abs(e-m), gap5 = Math.abs(N.e20[L-5]-N.s20[L-5]);
+  const gapT = gap/atr >= 1.5 && gap > gap5 ? '広がりきり' : gap > gap5*1.15 ? '拡大' : gap < gap5*0.85 ? '縮小' : '横ばい';
+  const dev = (px - e)/atr;
+  // 20SMAの分岐価格（次の足で抜ける20本前の終値）と、現在値のままなら次の10本で20SMAが上向く本数
+  const thr = c[L-19];
+  let upNext = 0; for (let j=0;j<10;j++) if (px > c[L-19+j]) upNext++;
+  const s2 = N.s200[L], e2 = N.e200[L];
+  const has200 = Number.isFinite(s2) && Number.isFinite(e2);
+  return {eD, sD, sd, st, cross, range, gap, gapT, dev, thr, upNext, s2, e2, has200,
+          pos200: has200 ? (px > Math.max(s2,e2) ? 1 : px < Math.min(s2,e2) ? -1 : 0) : 0,
+          tight200: has200 ? Math.abs(s2-e2) <= atr*1.0 : false, atr, px, e, m};
+}
+function n4Stage(n){
+  if (!n) return {v:0, t:'—'};
+  if (n.range) return {v:0, t:'レンジ'};
+  if (!n.st) return {v:0, t:'方向なし'};
+  return {v:n.sd, t:(n.sd > 0 ? '上' : '下') + ['','①初動','②移行','③継続'][n.st]};
+}
+function n4Walls(){
+  // 4時間足・日足の200SMA〜200EMAの帯に、支持線・抵抗線（水平線）が重なっているかで S/A/B をつける
+  const out = [], Z = S.sr;
+  for (const k of ['240','D']){
+    const R = S.res[k]; if (!R) continue;
+    const L = R.S.t.length-1, s2 = R.n4.s200[L], e2 = R.n4.e200[L];
+    if (!Number.isFinite(s2) || !Number.isFinite(e2)) continue;
+    const atr = atrOf(R.S, 14) || 1, lo = Math.min(s2,e2), hi = Math.max(s2,e2);
+    const tol = Z ? Math.max(Z.tol*2, atr*0.25) : atr*0.25;
+    const line = Z ? Z.levels.filter(z => z.p >= lo - tol && z.p <= hi + tol).sort((a,b)=>b.score-a.score)[0] : null;
+    const tight = hi - lo <= atr*1.0;
+    const rank = line && tight ? 'S' : line ? 'A' : 'B';
+    out.push({k, lo, hi, s2, e2, tight, line, rank});
+  }
+  return out;
+}
+function renderN4(){
+  const el = $('#n4Box'); if (!el) return;
+  const list = ['1','5','15','60','240','D'].filter(k => S.res[k]);
+  if (!list.length){ el.innerHTML = '<span class="mu">取得しています…</span>'; return; }
+  const ar = v => v > 0 ? '↗' : v < 0 ? '↘' : '→';
+  const rows = list.map(k => {
+    const n = n4State(S.res[k]), g = n4Stage(n);
+    if (!n) return `<tr data-tf="${k}" class="${k===S.tf?'cur':''}"><td>${TF[k].label}</td><td colspan="5" class="mu">本数不足</td></tr>`;
+    const p2 = !n.has200 ? '<span class="mu">200本未満</span>' : chip(n.pos200, (n.pos200>0?'上':n.pos200<0?'下':'帯中') + (n.tight200?'・接近':'・離'));
+    return `<tr data-tf="${k}" class="${k===S.tf?'cur':''}"><td>${TF[k].label}</td>
+      <td class="${cls(n.eD)}-t">${ar(n.eD)}</td><td class="${cls(n.sD)}-t">${ar(n.sD)}</td>
+      <td>${chip(g.v, g.t)}</td><td>${n.gapT}</td><td>${p2}</td></tr>`;
+  }).join('');
+  let h = `<div class="tw"><table class="n4"><thead><tr><th>足</th><th>20EMA</th><th>20SMA</th><th>段階</th><th>2本の間隔</th><th>200MA</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  // 日足の方向（note 4-1）
+  const nD = n4State(S.res['D']);
+  const bias = !nD ? null : (nD.eD > 0 && nD.sD > 0) ? 1 : (nD.eD < 0 && nD.sD < 0) ? -1 : 0;
+  const biasT = bias === null ? '日足の取得待ち' : bias > 0 ? '買い優先（日足の20EMA・20SMAがともに上向き）' : bias < 0 ? '売り優先（日足の20EMA・20SMAがともに下向き）' : '方向を決めつけず、買い・売り両方のシナリオを用意（日足の向きが食い違い）';
+
+  // 表示中の足の詳細
+  const n = n4State(S.res[S.tf]);
+  if (n){
+    const g = n4Stage(n), tl = TF[S.tf].label;
+    const stTxt = n.range ? `20EMAと20SMAが直近30本で${n.cross}回交差し、20SMAも寝ている。MAによる判断が難しい相場なので、この足でのMAエントリーは休み（レンジの上限・下限を使うか、上の足へ）`
+      : !n.st ? '2本の向きがはっきりしない'
+      : n.st === 1 ? `第1段階（初動）：20EMAだけが${n.sd>0?'上':'下'}を向いた。基本は見るだけ。入るならロットを落とし、利確は近く`
+      : n.st === 2 ? `第2段階（移行）：20EMAが${n.sd>0?'上':'下'}向き、20SMAが横ばい〜${n.sd>0?'上':'下'}向き始め。${n.sd>0?'押し目':'戻り'}を待って入る、いちばん利幅を取りやすい段階`
+      : `第3段階（継続）：2本とも${n.sd>0?'上':'下'}向き。20EMA〜20SMAの間への${n.sd>0?'押し':'戻り'}で入る・追加する`;
+    const devT = Math.abs(n.dev) >= 2.5 ? `<b class="dn-t">離れすぎ</b>（新規は待つ）` : Math.abs(n.dev) >= 1.5 ? 'やや離れている' : '近い';
+    h += `<div class="nowbox"><b>${tl}足</b>：${stTxt}
+      <div>20SMAの分岐 <b class="num">${fmt(n.thr)}</b>（次の足の終値がこれより${n.sD>=0?'下なら20SMAは下向きに':'上なら20SMAは上向きに'}変わる）。現在値のままなら、次の10本で20SMAは上向き${n.upNext}本・下向き${10-n.upNext}本</div>
+      <div>価格は20EMAの${n.dev>=0?'上':'下'} ATR×${Math.abs(n.dev).toFixed(1)}：${devT}。2本の間隔は${n.gapT}${n.gapT==='広がりきり'?'（新規は待ち、保有中なら一部利確を検討）':n.gapT==='縮小'?'（勢いが落ちて押し目・戻りの候補が近い）':''}</div>
+      ${n.has200 ? `<div>200SMA <b class="num">${fmt(n.s2)}</b>・200EMA <b class="num">${fmt(n.e2)}</b>：${n.tight200 ? '接近（壁が分厚い。跳ね返されたら逆張り、抜けたら順張りの両方を用意）' : '離れている（2本の間が壁のゾーン。手前の線で最初の反応、奥の線が本命）'}</div>` : ''}
+    </div>`;
+  }
+
+  // 壁のランク（note 3-5）
+  const W = n4Walls();
+  if (W.length){
+    h += `<div class="n4sub">200MAの壁（水平線との重なり）</div><div class="tw"><table class="n4"><thead><tr><th>足</th><th>200SMA〜200EMA</th><th>重なる水平線</th><th>ランク</th></tr></thead><tbody>` +
+      W.map(w => `<tr><td>${TFLBL[w.k]}</td><td class="num">${fmt(w.lo)}–${fmt(w.hi)}</td><td>${w.line ? `${w.line.name} ${fmt(w.line.p)}` : '<span class="mu">なし</span>'}</td><td><span class="rk ${w.rank}">${w.rank}</span></td></tr>`).join('') +
+      `</tbody></table></div><p class="mu" style="font-size:.7rem;margin:4px 0 0">S＝水平線＋200SMA・200EMAが接近して重なる（最優先）／A＝水平線＋200MA／B＝200MAだけ。表示中の上下4本の水平線で判定。</p>`;
+  }
+
+  // シナリオの土台と見送り条件（note 4-6・7-4）
+  const n15 = n4State(S.res['15']);
+  const want = n && n.sd ? n.sd : bias || 0;
+  const ok = '<span class="mk up-t">○</span>', ng = '<span class="mk dn-t">✕</span>', qs = '<span class="mk mu">？</span>';
+  const items = [
+    [bias === null || !want ? qs : (bias && want !== bias ? ng : ok), `日足と同じ向きを狙っている${bias && want && want !== bias ? '（逆向き。第1段階では入らない）' : ''}`],
+    [!n15 ? qs : n15.range ? ng : ok, `15分足で20EMAと20SMAが何度も交差していない${n15 ? `（直近30本で${n15.cross}回）` : ''}`],
+    [!n ? qs : Math.abs(n.dev) >= 2.5 ? ng : ok, '価格がMAから大きく離れていない'],
+    [qs, '重要な経済指標（雇用統計・CPI・FOMCなど）の前後ではない'],
+    [qs, '4時間足の壁まで価格が届いている'],
+    [qs, 'エントリー・損切り・利確の3つの価格とロットが決まっている'],
+    [qs, 'リスクリワードが1：1.5以上'],
+    [qs, '直前の負けを取り返そうとしていない']
+  ];
+  h += `<div class="n4sub">シナリオと見送り条件</div><div style="font-size:.78rem;margin-bottom:6px">日足：<b>${biasT}</b></div>
+    <ul class="n4chk">${items.map(([m,t]) => `<li>${m}<span>${t}</span></li>`).join('')}</ul>
+    <p class="mu" style="font-size:.7rem;margin:6px 0 0">✕がひとつでもあれば見送り。？は自分で確認。分析用で、売買を勧めるものではありません。</p>`;
+  el.innerHTML = h;
+}
+
 function renderTF(){
   const seg = $('#tfSeg');
   seg.innerHTML = TFS.map(t => `<button type="button" data-tf="${t.k}" aria-pressed="${t.k===S.tf}">${t.label}</button>`).join('');
@@ -1625,15 +1806,16 @@ function renderWave(){
     `<table class="tg2"><thead><tr><th>期間</th><th>半値</th><th>位置</th></tr></thead><tbody>${lv}</tbody></table>`;
 }
 function renderAll(){
-  S.sr = calcSR(); S.rx = reactions(); renderFeed(); renderTF(); renderTop(); renderMTF(); renderSR(); renderGroups(); renderWave(); requestDraw();
+  S.sr = calcSR(); S.rx = reactions(); renderFeed(); renderTF(); renderTop(); renderN4(); renderMTF(); renderSR(); renderGroups(); renderWave(); requestDraw();
 }
 
 /* ===================== 操作 ===================== */
 const setTF = k => { S.tf = k; S.hover = null; S.placing = null; if (S.waveMode === 'manual'){ seedManual(); recomputeWave(k); } savePrefs(); renderAll(); tick(); };
 $('#tfSeg').addEventListener('click', e => { const b = e.target.closest('button[data-tf]'); if (b) setTF(b.dataset.tf); });
+$('#n4Box').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
 $('#mtf').addEventListener('click', e => { const r = e.target.closest('tr[data-tf]'); if (r) setTF(r.dataset.tf); });
-[['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr'],['#lyVol','vol']].forEach(([id,k]) => {
-  $(id).addEventListener('change', e => { S.layers[k] = e.target.checked; requestDraw(); });
+[['#lyN4','n4'],['#lyMa','ma'],['#lyIchi','ichi'],['#lyWave','wave'],['#lyTgt','tgt'],['#lyTime','time'],['#lySR','sr'],['#lyVol','vol']].forEach(([id,k]) => {
+  $(id).addEventListener('change', e => { S.layers[k] = e.target.checked; requestDraw(); renderReadout(); });
 });
 $('#pivN').addEventListener('change', e => {
   const v = clamp(parseInt(e.target.value,10) || 5, 2, 30); e.target.value = v;
